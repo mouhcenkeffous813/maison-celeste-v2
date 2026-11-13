@@ -7,6 +7,7 @@ import {
   Share2,
   Code2,
   Lock,
+  ShieldCheck,
   Sparkles,
   Save,
   RotateCcw,
@@ -37,7 +38,6 @@ export const AdminSettings: React.FC = () => {
   const [tiktokPixelId, setTiktokPixelId] = useState(config.tiktokPixelId || '');
   const [deliveryTimeEstimate, setDeliveryTimeEstimate] = useState(config.deliveryTimeEstimate);
   const [announcementText, setAnnouncementText] = useState(config.announcementText);
-  const [adminPin, setAdminPin] = useState(config.adminPin);
 
   // Custom Theme state
   const [customPrimary, setCustomPrimary] = useState(config.theme.primary);
@@ -58,7 +58,6 @@ export const AdminSettings: React.FC = () => {
     setTiktokPixelId(config.tiktokPixelId || '');
     setDeliveryTimeEstimate(config.deliveryTimeEstimate);
     setAnnouncementText(config.announcementText);
-    setAdminPin(config.adminPin);
     setCustomPrimary(config.theme.primary);
     setCustomSecondary(config.theme.secondary);
   }, [config]);
@@ -102,7 +101,7 @@ export const AdminSettings: React.FC = () => {
         tiktokPixelId: tiktokPixelId.trim(),
         deliveryTimeEstimate: deliveryTimeEstimate.trim(),
         announcementText: announcementText.trim(),
-        adminPin: adminPin.trim() || '1234',
+        adminPin: config.adminPin || '1234',
         theme: selectedTheme,
       });
     } catch (err) {
@@ -473,22 +472,25 @@ export const AdminSettings: React.FC = () => {
             </div>
           </div>
 
-          {/* Admin PIN */}
+          {/* Authentification Sécurisée (Supabase Auth) */}
           <div className="pt-3 border-t border-stone-100">
-            <div className="max-w-xs">
-              <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
-                Code PIN Administrateur
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  maxLength={6}
-                  value={adminPin}
-                  onChange={e => setAdminPin(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-xs sm:text-sm bg-store-base rounded-xl border border-store-border focus:outline-none focus:border-store-primary font-mono font-bold"
-                />
+            <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-stone-900 text-white flex items-center justify-center shrink-0">
+                  <ShieldCheck className="w-5 h-5 text-store-primary" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-stone-800">
+                    Sécurité & Authentification Administrateur
+                  </p>
+                  <p className="text-[11px] text-stone-500">
+                    Protégé par Supabase Auth (Email & Mot de passe crypté). L'ancien code PIN a été retiré.
+                  </p>
+                </div>
               </div>
+              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full whitespace-nowrap self-start sm:self-auto">
+                ✓ Supabase Auth Actif
+              </span>
             </div>
           </div>
         </div>
