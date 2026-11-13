@@ -53,6 +53,7 @@ interface StoreContextType {
   isSyncing: boolean;
   createOrder: (orderData: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: OrderStatus, notes?: string) => Promise<Order>;
+  deleteOrder: (orderId: string) => Promise<boolean>;
   updateProduct: (id: string, updates: Partial<Product>) => Promise<Product>;
   createProduct: (data: Omit<Product, 'id' | 'createdAt'>) => Promise<Product>;
   deleteProduct: (id: string) => Promise<boolean>;
@@ -643,6 +644,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return updated;
   };
 
+  const deleteOrder = async (orderId: string): Promise<boolean> => {
+    try {
+      const ok = await api.deleteOrder(orderId);
+      if (ok) {
+        setOrders(prev => prev.filter(o => o.id !== orderId));
+        showToast('Commande supprimée avec succès', 'info');
+        return true;
+      }
+    } catch (e) {
+      showToast('Erreur lors de la suppression', 'error');
+    }
+    return false;
+  };
+
   const updateProduct = async (id: string, updates: Partial<Product>) => {
     const updated = await api.updateProduct(id, updates);
     setProducts(prev => prev.map(p => (p.id === id ? updated : p)));
@@ -954,6 +969,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isSyncing,
         createOrder,
         updateOrderStatus,
+        deleteOrder,
         updateProduct,
         createProduct,
         deleteProduct,

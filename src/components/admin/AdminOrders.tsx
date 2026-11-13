@@ -28,6 +28,7 @@ export const AdminOrders: React.FC = () => {
     orders,
     config,
     updateOrderStatus,
+    deleteOrder,
     generateWhatsAppLink,
     exportOrdersToCsv,
     showToast,
@@ -244,6 +245,9 @@ export const AdminOrders: React.FC = () => {
                                 <img
                                   src={it.productImage}
                                   alt=""
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=150&q=80';
+                                  }}
                                   className="w-5 h-5 rounded object-cover shrink-0 border border-stone-200"
                                 />
                                 <div className="min-w-0 flex-1 truncate">
@@ -263,6 +267,9 @@ export const AdminOrders: React.FC = () => {
                           <img
                             src={order.productImage}
                             alt=""
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=150&q=80';
+                            }}
                             className="w-8 h-8 rounded-lg object-cover flex-shrink-0 border border-stone-200"
                           />
                           <div className="min-w-0">
@@ -351,6 +358,19 @@ export const AdminOrders: React.FC = () => {
                           title="Détails complets de la commande"
                         >
                           <Eye className="w-4 h-4" />
+                        </button>
+
+                        {/* Delete Order Trigger */}
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Supprimer définitivement la commande ${order.orderNumber} ?`)) {
+                              deleteOrder(order.id);
+                            }
+                          }}
+                          className="p-1.5 rounded-xl hover:bg-rose-50 text-stone-400 hover:text-rose-600 transition-colors"
+                          title="Supprimer la commande"
+                        >
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                     </td>
