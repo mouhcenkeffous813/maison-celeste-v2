@@ -490,18 +490,16 @@ export const api = {
       // 2. FALLBACK INSERTION DIRECTE DANS SUPABASE POSTGRESQL
       try {
         const payload = mapOrderToDb(newOrder);
-        const { data: insertedData, error } = await supabase
+        const { error } = await supabase
           .from('orders')
-          .insert([payload])
-          .select()
-          .single();
+          .insert([payload]);
 
         if (error) {
           console.error('[Supabase] Erreur critique insertion commande distante:', error);
           throw new Error(`Échec de validation de la commande dans la base centrale: ${error.message}`);
         }
 
-        const confirmedOrder = insertedData ? mapDbToOrder(insertedData) : newOrder;
+        const confirmedOrder = newOrder;
 
         // Décrémentation atomique du stock via RPC Supabase
         const itemsToDeduct = (data.items && data.items.length > 0)

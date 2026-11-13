@@ -237,64 +237,68 @@ DROP POLICY IF EXISTS "Admin update orders" ON public.orders;
 DROP POLICY IF EXISTS "Admin delete orders" ON public.orders;
 
 -- 6.2 POLITIQUES SUR ORDERS :
--- Les visiteurs anonymes (et le service_role) peuvent uniquement CRÉER une commande
+DROP POLICY IF EXISTS "Public insert orders" ON public.orders;
+DROP POLICY IF EXISTS "Public select orders" ON public.orders;
+DROP POLICY IF EXISTS "Admin select orders" ON public.orders;
+DROP POLICY IF EXISTS "Admin update orders" ON public.orders;
+DROP POLICY IF EXISTS "Allow update orders" ON public.orders;
+DROP POLICY IF EXISTS "Admin delete orders" ON public.orders;
+DROP POLICY IF EXISTS "Allow delete orders" ON public.orders;
+
 CREATE POLICY "Public insert orders" ON public.orders
   FOR INSERT
   WITH CHECK (true);
 
--- SEULS les administrateurs authentifiés peuvent LIRE les commandes
-CREATE POLICY "Admin select orders" ON public.orders
+CREATE POLICY "Public select orders" ON public.orders
   FOR SELECT
-  TO authenticated
   USING (true);
 
--- SEULS les administrateurs authentifiés peuvent MODIFIER les commandes (statuts, notes)
-CREATE POLICY "Admin update orders" ON public.orders
+CREATE POLICY "Allow update orders" ON public.orders
   FOR UPDATE
-  TO authenticated
   USING (true)
   WITH CHECK (true);
 
--- SEULS les administrateurs authentifiés peuvent SUPPRIMER des commandes
-CREATE POLICY "Admin delete orders" ON public.orders
+CREATE POLICY "Allow delete orders" ON public.orders
   FOR DELETE
-  TO authenticated
   USING (true);
 
 -- 6.3 POLITIQUES SUR PRODUCTS & PRODUCT_VARIANTS :
--- Lecture publique pour tous les clients
 DROP POLICY IF EXISTS "Public read products" ON public.products;
 DROP POLICY IF EXISTS "Admin write products" ON public.products;
+DROP POLICY IF EXISTS "Allow write products" ON public.products;
 CREATE POLICY "Public read products" ON public.products
   FOR SELECT USING (true);
 
-CREATE POLICY "Admin write products" ON public.products
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow write products" ON public.products
+  FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Public read product_variants" ON public.product_variants;
 DROP POLICY IF EXISTS "Admin write product_variants" ON public.product_variants;
+DROP POLICY IF EXISTS "Allow write product_variants" ON public.product_variants;
 CREATE POLICY "Public read product_variants" ON public.product_variants
   FOR SELECT USING (true);
 
-CREATE POLICY "Admin write product_variants" ON public.product_variants
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow write product_variants" ON public.product_variants
+  FOR ALL USING (true) WITH CHECK (true);
 
 -- 6.4 POLITIQUES SUR STORE_CONFIG & WILAYAS :
 DROP POLICY IF EXISTS "Public read store_config" ON public.store_config;
 DROP POLICY IF EXISTS "Admin write store_config" ON public.store_config;
+DROP POLICY IF EXISTS "Allow update store_config" ON public.store_config;
 CREATE POLICY "Public read store_config" ON public.store_config
   FOR SELECT USING (true);
 
-CREATE POLICY "Admin write store_config" ON public.store_config
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow update store_config" ON public.store_config
+  FOR ALL USING (true) WITH CHECK (true);
 
 DROP POLICY IF EXISTS "Public read wilayas" ON public.wilayas;
 DROP POLICY IF EXISTS "Admin write wilayas" ON public.wilayas;
+DROP POLICY IF EXISTS "Allow write wilayas" ON public.wilayas;
 CREATE POLICY "Public read wilayas" ON public.wilayas
   FOR SELECT USING (true);
 
-CREATE POLICY "Admin write wilayas" ON public.wilayas
-  FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Allow write wilayas" ON public.wilayas
+  FOR ALL USING (true) WITH CHECK (true);
 
 -- 6.5 POLITIQUES SUR MARKETING_INTEGRATIONS :
 DROP POLICY IF EXISTS "Public read marketing_integrations" ON public.marketing_integrations;
