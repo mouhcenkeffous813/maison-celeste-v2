@@ -24,7 +24,7 @@ interface NavigationDrawerProps {
 }
 
 export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onClose }) => {
-  const { config, products, setCurrentView, setSelectedCategory, openProductPage, isAdminLoggedIn, demoLoginAdmin, categories } = useStore();
+  const { config, products, setCurrentView, setSelectedCategory, openProductPage, isAdminLoggedIn, categories } = useStore();
   const [searchQuery, setSearchQuery] = useState('');
 
   if (!isOpen) return null;
@@ -240,24 +240,26 @@ export const NavigationDrawer: React.FC<NavigationDrawerProps> = ({ isOpen, onCl
             </div>
           </div>
 
-          {/* Admin Dashboard Access */}
-          <div className="pt-2 border-t border-store-border">
-            <button
-              onClick={() => {
-                demoLoginAdmin();
-                onClose();
-              }}
-              className="w-full p-2.5 rounded-xl bg-stone-900 text-white text-xs font-semibold flex items-center justify-between hover:bg-stone-800 transition-colors shadow-sm"
-            >
-              <div className="flex items-center gap-2">
-                <LayoutDashboard className="w-4 h-4 text-store-primary" />
-                <span>Dashboard Gérant</span>
-              </div>
-              <span className="text-[10px] bg-stone-800 px-2 py-0.5 rounded text-stone-300 font-mono">
-                {isAdminLoggedIn ? 'Connecté' : 'Accès PIN'}
-              </span>
-            </button>
-          </div>
+          {/* Admin Dashboard Access (Visible UNIQUEMENT si l'administrateur est déjà authentifié) */}
+          {isAdminLoggedIn && (
+            <div className="pt-2 border-t border-store-border">
+              <button
+                onClick={() => {
+                  setCurrentView('admin');
+                  onClose();
+                }}
+                className="w-full p-2.5 rounded-xl bg-stone-900 text-white text-xs font-semibold flex items-center justify-between hover:bg-stone-800 transition-colors shadow-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <LayoutDashboard className="w-4 h-4 text-store-primary" />
+                  <span>Dashboard Gérant</span>
+                </div>
+                <span className="text-[10px] bg-emerald-900/60 text-emerald-400 px-2 py-0.5 rounded font-mono">
+                  Connecté
+                </span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Footer info */}

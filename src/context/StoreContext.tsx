@@ -77,7 +77,6 @@ interface StoreContextType {
   adminUserEmail: string | null;
   loginAdmin: (emailOrPin: string, password?: string) => Promise<boolean>;
   logoutAdmin: () => Promise<void>;
-  demoLoginAdmin: () => void;
   simulateDemoOrder: () => Promise<Order>;
 
   // Dark Mode
@@ -117,12 +116,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isLoading, setIsLoading] = useState<boolean>(true);
   
   const [toasts, setToasts] = useState<ToastInfo[]>([]);
-  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
-    return sessionStorage.getItem('elissia_admin_auth') === 'true';
-  });
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(false);
   const [adminUserEmail, setAdminUserEmail] = useState<string | null>(null);
 
-  // Synchronisation de session Supabase Auth (JWT)
+  // Synchronisation stricte de session Supabase Auth (JWT)
   useEffect(() => {
     if (!supabase || !isSupabaseConfigured) return;
 
@@ -131,20 +128,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (session?.user) {
         setIsAdminLoggedIn(true);
         setAdminUserEmail(session.user.email || null);
-        sessionStorage.setItem('elissia_admin_auth', 'true');
+      } else {
+        setIsAdminLoggedIn(false);
+        setAdminUserEmail(null);
       }
-    }).catch(() => {});
+    }).catch(() => {
+      setIsAdminLoggedIn(false);
+      setAdminUserEmail(null);
+    });
 
     // 2. Écoute des changements d'état (login, logout, refresh token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         setIsAdminLoggedIn(true);
         setAdminUserEmail(session.user.email || null);
-        sessionStorage.setItem('elissia_admin_auth', 'true');
-      } else if (event === 'SIGNED_OUT') {
+      } else {
         setIsAdminLoggedIn(false);
         setAdminUserEmail(null);
-        sessionStorage.removeItem('elissia_admin_auth');
       }
     });
 
@@ -814,54 +814,47 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const loginAdmin = async (emailOrPin: string, password?: string): Promise<boolean> => {
-    // 1. Authentification officielle Supabase Auth si mot de passe fourni
-    if (password !== undefined && password.trim().length > 0) {
-      if (supabase && isSupabaseConfigured) {
-        try {
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email: emailOrPin.trim(),
-            password: password.trim(),
-          });
-
-          if (error) {
-            console.warn('[Supabase Auth] Erreur de connexion:', error.message);
-            showToast(
-              error.message === 'Invalid login credentials'
-                ? 'Identifiants administrateur incorrects'
-                : error.message,
-              'error'
-            );
-            return false;
-          }
-
-          if (data.session) {
-            setIsAdminLoggedIn(true);
-            setAdminUserEmail(data.session.user.email || null);
-            sessionStorage.setItem('elissia_admin_auth', 'true');
-            loadData(true);
-            showToast('Connexion administrateur réussie (Session Cloud active)', 'success');
-            return true;
-          }
-        } catch (authErr: any) {
-          console.error('[Supabase Auth] Exception connexion:', authErr);
-          showToast("Erreur lors de la communication avec le serveur d'authentification", 'error');
-          return false;
-        }
-      }
-    }
-
-    // 2. Mode Démo / Code PIN (1234)
-    if (emailOrPin === config.adminPin || emailOrPin === '1234') {
-      setIsAdminLoggedIn(true);
-      setAdminUserEmail('demo@maisonceleste.dz');
-      sessionStorage.setItem('elissia_admin_auth', 'true');
-      loadData(true);
-      showToast('Connexion administrateur réussie (Mode Démo)', 'success');
-      return true;
-    } else {
-      showToast('Code PIN incorrect (par défaut: 1234)', 'error');
+    if (!password || password.trim().length === 0) {
+      showToast('Veuillez renseigner votre mot de passe administrateur', 'error');
       return false;
     }
+
+    if (supabase && isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: emailOrPin.trim(),
+          password: password.trim(),
+        });
+
+        if (error) {
+          console.warn('[Supabase Auth] Erreur de connexion:', error.message);
+          showToast(
+            error.message === 'Invalid login credentials'
+              ? 'Email ou mot de passe administrateur incorrect'
+              : error.message,
+            'error'
+          );
+          return false;
+        }
+
+        if (data?.session?.user) {
+          setIsAdminLoggedIn(true);
+          setAdminUserEmail(data.session.user.email || null);
+          loadData(true);
+          showToast('Connexion administrateur réussie', 'success');
+          return true;
+        }
+      } catch (authErr: any) {
+        console.error('[Supabase Auth] Exception connexion:', authErr);
+        showToast("Erreur lors de la communication avec le serveur d'authentification", 'error');
+        return false;
+      }
+    } else {
+      showToast("Service Supabase non configuré", 'error');
+      return false;
+    }
+
+    return false;
   };
 
   const logoutAdmin = async (): Promise<void> => {
@@ -874,19 +867,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     setIsAdminLoggedIn(false);
     setAdminUserEmail(null);
-    sessionStorage.removeItem('elissia_admin_auth');
     setCurrentView('home');
     showToast('Déconnexion effectuée', 'info');
-  };
-
-  // 1-Click access to Dashboard
-  const demoLoginAdmin = () => {
-    setIsAdminLoggedIn(true);
-    sessionStorage.setItem('elissia_admin_auth', 'true');
-    loadData(true);
-    setCurrentView('admin');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-    showToast('Accès au Tableau de Bord Gérant', 'info');
   };
 
   // 1-Click Live Order Simulation to demonstrate the real-time CRM to prospective clients
@@ -990,7 +972,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         adminUserEmail,
         loginAdmin,
         logoutAdmin,
-        demoLoginAdmin,
         simulateDemoOrder,
         isDarkMode,
         toggleDarkMode,

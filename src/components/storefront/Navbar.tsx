@@ -10,7 +10,6 @@ export const Navbar: React.FC = () => {
     setCurrentView,
     products,
     isAdminLoggedIn,
-    demoLoginAdmin,
     cartTotalCount,
     setIsCartOpen,
     isDarkMode,
@@ -124,16 +123,18 @@ export const Navbar: React.FC = () => {
               )}
             </button>
 
-            {/* Bouton Accès Dashboard Gérant (Toujours visible, adaptatif mobile) */}
-            <button
-              onClick={demoLoginAdmin}
-              className="h-8 px-2.5 sm:h-10 sm:px-3.5 rounded-full bg-stone-900 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm hover:bg-stone-800 active:scale-95 transition-all border border-stone-800 shrink-0"
-              title="Accéder au Tableau de Bord Gérant"
-              aria-label="Accéder au Dashboard Administrateur"
-            >
-              <LayoutDashboard className="w-3.5 h-3.5 text-store-primary shrink-0" />
-              <span className="hidden md:inline">Dashboard</span>
-            </button>
+            {/* Bouton Dashboard Administrateur : VISIBLE UNIQUEMENT SI L'ADMIN EST DÉJÀ CONNECTÉ */}
+            {isAdminLoggedIn && (
+              <button
+                onClick={() => setCurrentView('admin')}
+                className="h-8 px-2.5 sm:h-10 sm:px-3.5 rounded-full bg-stone-900 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-sm hover:bg-stone-800 active:scale-95 transition-all border border-stone-800 shrink-0"
+                title="Accéder au Tableau de Bord Administrateur"
+                aria-label="Accéder au Dashboard Administrateur"
+              >
+                <LayoutDashboard className="w-3.5 h-3.5 text-store-primary shrink-0" />
+                <span className="hidden md:inline">Dashboard</span>
+              </button>
+            )}
           </div>
         </div>
 
