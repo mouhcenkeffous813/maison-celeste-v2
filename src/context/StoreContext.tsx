@@ -74,8 +74,9 @@ interface StoreContextType {
 
   // Admin Auth & Demo Simulation
   isAdminLoggedIn: boolean;
-  loginAdmin: (pin: string) => boolean;
-  logoutAdmin: () => void;
+  adminUserEmail: string | null;
+  loginAdmin: (emailOrPin: string, password?: string) => Promise<boolean>;
+  logoutAdmin: () => Promise<void>;
   demoLoginAdmin: () => void;
   simulateDemoOrder: () => Promise<Order>;
 
@@ -119,6 +120,38 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isAdminLoggedIn, setIsAdminLoggedIn] = useState<boolean>(() => {
     return sessionStorage.getItem('elissia_admin_auth') === 'true';
   });
+  const [adminUserEmail, setAdminUserEmail] = useState<string | null>(null);
+
+  // Synchronisation de session Supabase Auth (JWT)
+  useEffect(() => {
+    if (!supabase || !isSupabaseConfigured) return;
+
+    // 1. Vérification de la session active
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setIsAdminLoggedIn(true);
+        setAdminUserEmail(session.user.email || null);
+        sessionStorage.setItem('elissia_admin_auth', 'true');
+      }
+    }).catch(() => {});
+
+    // 2. Écoute des changements d'état (login, logout, refresh token)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setIsAdminLoggedIn(true);
+        setAdminUserEmail(session.user.email || null);
+        sessionStorage.setItem('elissia_admin_auth', 'true');
+      } else if (event === 'SIGNED_OUT') {
+        setIsAdminLoggedIn(false);
+        setAdminUserEmail(null);
+        sessionStorage.removeItem('elissia_admin_auth');
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   // Dark Mode State with localStorage persistence
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -379,7 +412,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  // Realtime Supabase Channel: auto-update when orders or store_config change on any client
+  // Realtime Supabase Channel: auto-update when orders, store_config, products or variants change
   useEffect(() => {
     if (!supabase || !isSupabaseConfigured) return;
 
@@ -403,6 +436,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             loadData(true);
           }
         )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'products' },
+          (payload) => {
+            console.log('[Supabase Realtime] Changement détecté sur les produits:', payload);
+            loadData(true);
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'product_variants' },
+          (payload) => {
+            console.log('[Supabase Realtime] Changement détecté sur les variantes:', payload);
+            loadData(true);
+          }
+        )
         .subscribe((status) => {
           console.log('[Supabase Realtime] Statut abonnement:', status);
         });
@@ -420,7 +469,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // Cross-Tab local synchronization
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'celeste_orders_v10' || e.key === 'celeste_config_v10' || e.key === 'celeste_products_v11') {
+      if (e.key === 'celeste_orders_v10' || e.key === 'celeste_config_v10') {
         loadData(true);
       }
     };
@@ -764,12 +813,50 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showToast('Exportation CSV (Yalidine/ZR Express) réussie !', 'success');
   };
 
-  const loginAdmin = (pin: string) => {
-    if (pin === config.adminPin || pin === '1234') {
+  const loginAdmin = async (emailOrPin: string, password?: string): Promise<boolean> => {
+    // 1. Authentification officielle Supabase Auth si mot de passe fourni
+    if (password !== undefined && password.trim().length > 0) {
+      if (supabase && isSupabaseConfigured) {
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: emailOrPin.trim(),
+            password: password.trim(),
+          });
+
+          if (error) {
+            console.warn('[Supabase Auth] Erreur de connexion:', error.message);
+            showToast(
+              error.message === 'Invalid login credentials'
+                ? 'Identifiants administrateur incorrects'
+                : error.message,
+              'error'
+            );
+            return false;
+          }
+
+          if (data.session) {
+            setIsAdminLoggedIn(true);
+            setAdminUserEmail(data.session.user.email || null);
+            sessionStorage.setItem('elissia_admin_auth', 'true');
+            loadData(true);
+            showToast('Connexion administrateur réussie (Session Cloud active)', 'success');
+            return true;
+          }
+        } catch (authErr: any) {
+          console.error('[Supabase Auth] Exception connexion:', authErr);
+          showToast("Erreur lors de la communication avec le serveur d'authentification", 'error');
+          return false;
+        }
+      }
+    }
+
+    // 2. Mode Démo / Code PIN (1234)
+    if (emailOrPin === config.adminPin || emailOrPin === '1234') {
       setIsAdminLoggedIn(true);
+      setAdminUserEmail('demo@maisonceleste.dz');
       sessionStorage.setItem('elissia_admin_auth', 'true');
       loadData(true);
-      showToast('Connexion administrateur réussie', 'success');
+      showToast('Connexion administrateur réussie (Mode Démo)', 'success');
       return true;
     } else {
       showToast('Code PIN incorrect (par défaut: 1234)', 'error');
@@ -777,8 +864,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
-  const logoutAdmin = () => {
+  const logoutAdmin = async (): Promise<void> => {
+    if (supabase && isSupabaseConfigured) {
+      try {
+        await supabase.auth.signOut();
+      } catch (e) {
+        console.warn('Erreur déconnexion Supabase:', e);
+      }
+    }
     setIsAdminLoggedIn(false);
+    setAdminUserEmail(null);
     sessionStorage.removeItem('elissia_admin_auth');
     setCurrentView('home');
     showToast('Déconnexion effectuée', 'info');
@@ -892,6 +987,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addCategory,
         deleteCategory,
         isAdminLoggedIn,
+        adminUserEmail,
         loginAdmin,
         logoutAdmin,
         demoLoginAdmin,

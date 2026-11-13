@@ -26,7 +26,7 @@ import { AdminMarketing } from './AdminMarketing';
 type AdminTab = 'overview' | 'orders' | 'products' | 'shipping' | 'marketing' | 'settings';
 
 export const AdminLayout: React.FC = () => {
-  const { isAdminLoggedIn, logoutAdmin, setCurrentView, config, orders, simulateDemoOrder, isDarkMode, toggleDarkMode } = useStore();
+  const { isAdminLoggedIn, logoutAdmin, setCurrentView, config, orders, simulateDemoOrder, isDarkMode, toggleDarkMode, adminUserEmail } = useStore();
   const [activeTab, setActiveTab] = useState<AdminTab>('overview');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -114,9 +114,14 @@ export const AdminLayout: React.FC = () => {
               <h2 className="font-serif font-bold text-sm text-stone-900 truncate">
                 {config.storeName}
               </h2>
-              <span className="text-[10px] text-store-primary font-bold tracking-wider uppercase">
+              <span className="text-[10px] text-store-primary font-bold tracking-wider uppercase block">
                 Admin Dashboard
               </span>
+              {adminUserEmail && (
+                <span className="text-[10px] text-emerald-600 font-mono block truncate" title={adminUserEmail}>
+                  ● {adminUserEmail}
+                </span>
+              )}
             </div>
           </div>
 

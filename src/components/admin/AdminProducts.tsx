@@ -22,7 +22,7 @@ import {
 import { useStore } from '../../context/StoreContext';
 import { Product, ProductColor, ProductVariant } from '../../types';
 import { formatPrice, calculateDiscountPercentage } from '../../utils/formatters';
-import { compressImageFile } from '../../utils/imageCompressor';
+import { uploadProductImage } from '../../services/storage';
 
 export const AdminProducts: React.FC = () => {
   const {
@@ -176,17 +176,17 @@ export const AdminProducts: React.FC = () => {
 
     setIsUploading(true);
     try {
-      const compressedUrls: string[] = [];
+      const uploadedUrls: string[] = [];
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const dataUrl = await compressImageFile(file, 1200, 1200, 0.85);
-        compressedUrls.push(dataUrl);
+        const publicUrl = await uploadProductImage(file);
+        uploadedUrls.push(publicUrl);
       }
-      setImages(prev => [...prev, ...compressedUrls]);
-      showToast(`${compressedUrls.length} image(s) ajoutée(s) avec succès !`, 'success');
+      setImages(prev => [...prev, ...uploadedUrls]);
+      showToast(`${uploadedUrls.length} image(s) WebP téléversée(s) avec succès !`, 'success');
     } catch (err) {
       console.error('Erreur téléversement:', err);
-      showToast("Erreur lors de l'import de l'image", 'error');
+      showToast("Erreur lors de l'optimisation et de l'envoi de l'image", 'error');
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {

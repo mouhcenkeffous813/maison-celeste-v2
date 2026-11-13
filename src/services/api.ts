@@ -1,4 +1,4 @@
-import { Product, Order, OrderStatus, Wilaya, StoreConfig, Review } from '../types';
+import { Product, ProductVariant, Order, OrderStatus, Wilaya, StoreConfig, Review } from '../types';
 import { INITIAL_PRODUCTS } from '../data/mockProducts';
 import { INITIAL_ORDERS } from '../data/mockOrders';
 import { INITIAL_REVIEWS } from '../data/mockReviews';
@@ -8,18 +8,81 @@ import { supabase, isSupabaseConfigured } from './supabaseClient';
 
 export const ITEMS_DELIMITER = '\n\n__MC_ITEMS_DATA__:';
 
+// ===================== MAPPING PRODUITS & VARIANTES =====================
+function mapDbToProduct(row: any): Product {
+  const variants: ProductVariant[] = Array.isArray(row.product_variants)
+    ? row.product_variants.map((v: any) => ({
+        id: v.id,
+        colorName: v.color_name,
+        colorHex: v.color_hex,
+        size: v.size,
+        stock: Number(v.stock) || 0,
+        sku: v.sku || undefined,
+        image: v.image || undefined,
+      }))
+    : [];
+
+  return {
+    id: row.id,
+    title: row.title,
+    slug: row.slug || row.id,
+    category: row.category,
+    shortDescription: row.short_description || '',
+    description: row.description || '',
+    bulletPoints: Array.isArray(row.bullet_points) ? row.bullet_points : [],
+    price: Number(row.price) || 0,
+    compareAtPrice: Number(row.compare_at_price) || 0,
+    images: Array.isArray(row.images) ? row.images : [],
+    colors: Array.isArray(row.colors) ? row.colors : [],
+    sizes: Array.isArray(row.sizes) ? row.sizes : [],
+    variants,
+    totalStock: Number(row.total_stock) || variants.reduce((sum, v) => sum + v.stock, 0),
+    rating: Number(row.rating) || 5.0,
+    reviewCount: Number(row.review_count) || 0,
+    isFeatured: Boolean(row.is_featured),
+    isActive: row.is_active !== undefined ? Boolean(row.is_active) : true,
+    badge: row.badge || undefined,
+    createdAt: row.created_at || new Date().toISOString(),
+  };
+}
+
+function mapProductToDb(prod: Partial<Product>): any {
+  const obj: any = {};
+  if (prod.id !== undefined) obj.id = prod.id;
+  if (prod.title !== undefined) obj.title = prod.title;
+  if (prod.slug !== undefined) obj.slug = prod.slug;
+  if (prod.category !== undefined) obj.category = prod.category;
+  if (prod.shortDescription !== undefined) obj.short_description = prod.shortDescription;
+  if (prod.description !== undefined) obj.description = prod.description;
+  if (prod.bulletPoints !== undefined) obj.bullet_points = prod.bulletPoints;
+  if (prod.price !== undefined) obj.price = prod.price;
+  if (prod.compareAtPrice !== undefined) obj.compare_at_price = prod.compareAtPrice;
+  if (prod.images !== undefined) obj.images = prod.images;
+  if (prod.colors !== undefined) obj.colors = prod.colors;
+  if (prod.sizes !== undefined) obj.sizes = prod.sizes;
+  if (prod.totalStock !== undefined) obj.total_stock = prod.totalStock;
+  if (prod.rating !== undefined) obj.rating = prod.rating;
+  if (prod.reviewCount !== undefined) obj.review_count = prod.reviewCount;
+  if (prod.isFeatured !== undefined) obj.is_featured = prod.isFeatured;
+  if (prod.isActive !== undefined) obj.is_active = prod.isActive;
+  if (prod.badge !== undefined) obj.badge = prod.badge;
+  if (prod.createdAt !== undefined) obj.created_at = prod.createdAt;
+  return obj;
+}
+
+// ===================== MAPPING COMMANDES =====================
 function mapDbToOrder(row: any): Order {
   let parsedItems = Array.isArray(row.items) ? row.items : undefined;
   let cleanNotes = row.notes || undefined;
 
-  // Extract embedded items safely from notes if present
+  // Extraction sécurisée des articles multiples depuis les notes
   if (!parsedItems && row.notes && typeof row.notes === 'string' && row.notes.includes(ITEMS_DELIMITER)) {
     try {
       const parts = row.notes.split(ITEMS_DELIMITER);
       cleanNotes = parts[0].trim() || undefined;
       parsedItems = JSON.parse(parts[1]);
     } catch (e) {
-      console.warn('Failed to parse embedded order items from notes', e);
+      console.warn('Échec parsing items de commande depuis notes', e);
     }
   }
 
@@ -87,7 +150,20 @@ function mapOrderToDb(order: Order) {
   };
 }
 
-function withTimeout<T>(promise: PromiseLike<T>, ms = 3500): Promise<T> {
+function mapDbToWilaya(row: any): Wilaya {
+  return {
+    id: Number(row.id),
+    code: String(row.code),
+    name: row.name,
+    arName: row.ar_name || row.arName,
+    communes: Array.isArray(row.communes) ? row.communes : [],
+    homeDeliveryPrice: Number(row.home_delivery_price ?? row.homeDeliveryPrice ?? 600),
+    stopDeskPrice: Number(row.stop_desk_price ?? row.stopDeskPrice ?? 350),
+    isDeliverable: Boolean(row.is_deliverable ?? row.isDeliverable ?? true),
+  };
+}
+
+function withTimeout<T>(promise: PromiseLike<T>, ms = 4000): Promise<T> {
   return Promise.race([
     Promise.resolve(promise),
     new Promise<T>((_, reject) =>
@@ -97,7 +173,6 @@ function withTimeout<T>(promise: PromiseLike<T>, ms = 3500): Promise<T> {
 }
 
 const STORAGE_KEYS = {
-  PRODUCTS: 'celeste_products_v11',
   ORDERS: 'celeste_orders_v10',
   WILAYAS: 'orlea_wilayas_v7',
   CONFIG: 'celeste_config_v10',
@@ -114,7 +189,7 @@ export const INITIAL_CATEGORIES: string[] = [
   'Caftans & Prêt-à-Porter',
 ];
 
-// Helper: load from localStorage with fallback
+// Helper: load from localStorage with fallback (pour cache de secours hors-ligne)
 function loadFromStorage<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -129,7 +204,7 @@ function loadFromStorage<T>(key: string, fallback: T): T {
   }
 }
 
-// Helper: save to localStorage and dispatch custom event for instant cross-component updates
+// Helper: save to localStorage and dispatch custom event
 function saveToStorage<T>(key: string, data: T): void {
   try {
     localStorage.setItem(key, JSON.stringify(data));
@@ -140,94 +215,188 @@ function saveToStorage<T>(key: string, data: T): void {
 }
 
 /**
- * Abstract API service
- * Ready for drop-in Supabase / Firebase / REST backend replacement
+ * Service API V2
+ * Communication directe avec Supabase PostgreSQL (Products, Orders, StoreConfig, Wilayas)
+ * et exécution Edge Functions pour les commandes.
  */
 export const api = {
-  // ===================== PRODUCTS =====================
+  // ===================== PRODUCTS (CENTRALISÉS POSTGRESQL) =====================
   async getProducts(): Promise<Product[]> {
-    return loadFromStorage<Product[]>(STORAGE_KEYS.PRODUCTS, INITIAL_PRODUCTS);
+    if (supabase && isSupabaseConfigured) {
+      try {
+        const queryPromise = supabase
+          .from('products')
+          .select('*, product_variants(*)')
+          .order('created_at', { ascending: false });
+
+        const { data, error } = await withTimeout<any>(queryPromise, 4500);
+
+        if (!error && Array.isArray(data) && data.length > 0) {
+          return data.map(mapDbToProduct);
+        }
+        if (error) {
+          console.warn('[Supabase] Erreur récupération produits:', error.message);
+        }
+      } catch (err) {
+        console.warn('[Supabase] Exception ou timeout produits distants:', err);
+      }
+    }
+
+    // Fallback propre en lecture sur mockProducts uniquement si Supabase non configuré ou vide
+    return INITIAL_PRODUCTS;
   },
 
   async getProductById(id: string): Promise<Product | null> {
+    if (supabase && isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*, product_variants(*)')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (!error && data) {
+          return mapDbToProduct(data);
+        }
+      } catch (e) {
+        console.warn('[Supabase] Erreur getProductById:', e);
+      }
+    }
     const products = await this.getProducts();
     return products.find(p => p.id === id) || null;
   },
 
   async createProduct(data: Omit<Product, 'id' | 'createdAt'>): Promise<Product> {
-    const products = await this.getProducts();
+    const newId = `prod-${Date.now().toString(36)}`;
+    const createdAt = new Date().toISOString().split('T')[0];
     const newProduct: Product = {
       ...data,
-      id: `prod-${Date.now().toString(36)}`,
-      createdAt: new Date().toISOString().split('T')[0],
+      id: newId,
+      createdAt,
+      slug: data.slug || `${data.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${Date.now().toString(36)}`,
     };
-    const updated = [newProduct, ...products];
-    saveToStorage(STORAGE_KEYS.PRODUCTS, updated);
+
+    if (supabase && isSupabaseConfigured) {
+      try {
+        // 1. Insérer le produit parent
+        const parentPayload = mapProductToDb(newProduct);
+        const { error: prodErr } = await supabase.from('products').insert([parentPayload]);
+        if (prodErr) throw prodErr;
+
+        // 2. Insérer les variantes associées
+        if (newProduct.variants && newProduct.variants.length > 0) {
+          const variantsPayload = newProduct.variants.map((v, i) => ({
+            id: v.id || `v_${newId}_${i}`,
+            product_id: newId,
+            color_name: v.colorName,
+            color_hex: v.colorHex,
+            size: v.size,
+            stock: v.stock,
+            sku: v.sku || null,
+            image: v.image || null,
+          }));
+          const { error: varErr } = await supabase.from('product_variants').insert(variantsPayload);
+          if (varErr) console.warn('[Supabase] Erreur insertion variantes:', varErr.message);
+        }
+
+        console.log('[Supabase] Nouveau produit enregistré dans PostgreSQL:', newProduct.title);
+        return newProduct;
+      } catch (err: any) {
+        console.error('[Supabase] Erreur critique création produit:', err);
+        throw new Error(`Échec de création du produit dans Supabase: ${err.message}`);
+      }
+    }
+
     return newProduct;
   },
 
   async updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
-    const products = await this.getProducts();
-    const index = products.findIndex(p => p.id === id);
-    if (index === -1) throw new Error(`Product ${id} not found`);
+    if (supabase && isSupabaseConfigured) {
+      try {
+        const dbPayload = mapProductToDb(updates);
+        if (Object.keys(dbPayload).length > 0) {
+          const { error } = await supabase.from('products').update(dbPayload).eq('id', id);
+          if (error) throw error;
+        }
 
-    const updatedProduct = { ...products[index], ...updates };
-    products[index] = updatedProduct;
-    saveToStorage(STORAGE_KEYS.PRODUCTS, [...products]);
-    return updatedProduct;
+        // Synchronisation des variantes si modifiées
+        if (updates.variants && Array.isArray(updates.variants)) {
+          await supabase.from('product_variants').delete().eq('product_id', id);
+          const variantsPayload = updates.variants.map((v, i) => ({
+            id: v.id || `v_${id}_${i}`,
+            product_id: id,
+            color_name: v.colorName,
+            color_hex: v.colorHex,
+            size: v.size,
+            stock: v.stock,
+            sku: v.sku || null,
+            image: v.image || null,
+          }));
+          await supabase.from('product_variants').insert(variantsPayload);
+        }
+
+        console.log('[Supabase] Produit mis à jour dans PostgreSQL:', id);
+      } catch (err: any) {
+        console.error('[Supabase] Erreur mise à jour produit distant:', err);
+      }
+    }
+
+    const fresh = await this.getProductById(id);
+    if (fresh) return fresh;
+    return { id, ...updates } as Product;
   },
 
   async deleteProduct(id: string): Promise<boolean> {
-    const products = await this.getProducts();
-    const filtered = products.filter(p => p.id !== id);
-    saveToStorage(STORAGE_KEYS.PRODUCTS, filtered);
+    if (supabase && isSupabaseConfigured) {
+      try {
+        const { error } = await supabase.from('products').delete().eq('id', id);
+        if (error) throw error;
+        console.log('[Supabase] Produit supprimé de PostgreSQL:', id);
+        return true;
+      } catch (err) {
+        console.error('[Supabase] Erreur suppression produit:', err);
+        return false;
+      }
+    }
     return true;
   },
 
-  // ===================== CATEGORIES (DYNAMIC CRUD) =====================
+  // ===================== CATEGORIES (DYNAMIQUES DEPUIS PRODUITS) =====================
   async getCategories(): Promise<string[]> {
     const prods = await this.getProducts();
-    const fallback = Array.from(
+    const uniqueCats = Array.from(
       new Set([...INITIAL_CATEGORIES, ...prods.map(p => p.category).filter(Boolean)])
     );
-    return loadFromStorage<string[]>(STORAGE_KEYS.CATEGORIES, fallback);
+    return uniqueCats;
   },
 
   async addCategory(name: string): Promise<string[]> {
     const cats = await this.getCategories();
     const clean = name.trim();
     if (!clean || cats.includes(clean)) return cats;
-    const updated = [...cats, clean];
-    saveToStorage(STORAGE_KEYS.CATEGORIES, updated);
-    return updated;
+    return [...cats, clean];
   },
 
   async deleteCategory(name: string): Promise<string[]> {
     const cats = await this.getCategories();
     const filtered = cats.filter(c => c !== name);
-    saveToStorage(STORAGE_KEYS.CATEGORIES, filtered);
-
-    // Also reassign any products with this category to the first available category or 'Général'
     const fallbackCategory = filtered[0] || 'Général';
-    const prods = await this.getProducts();
-    let hasChanges = false;
-    const updatedProds = prods.map(p => {
-      if (p.category === name) {
-        hasChanges = true;
-        return { ...p, category: fallbackCategory };
-      }
-      return p;
-    });
-    if (hasChanges) {
-      saveToStorage(STORAGE_KEYS.PRODUCTS, updatedProds);
-    }
 
+    if (supabase && isSupabaseConfigured) {
+      try {
+        await supabase
+          .from('products')
+          .update({ category: fallbackCategory })
+          .eq('category', name);
+      } catch (err) {
+        console.warn('Erreur réattribution catégorie:', err);
+      }
+    }
     return filtered;
   },
 
-  // ===================== ORDERS (COD ALGERIA) =====================
+  // ===================== ORDERS (EDGE FUNCTION & COD ALGERIE) =====================
   async getOrders(): Promise<Order[]> {
-    // 1. Tenter la récupération depuis Supabase Cloud si connecté (avec timeout de sécurité de 3.5s)
     if (supabase && isSupabaseConfigured) {
       try {
         const queryPromise = supabase
@@ -235,41 +404,22 @@ export const api = {
           .select('*')
           .order('created_at', { ascending: false });
 
-        const { data, error } = await withTimeout<any>(queryPromise, 3500);
+        const { data, error } = await withTimeout<any>(queryPromise, 4000);
 
         if (!error && Array.isArray(data)) {
           const cloudOrders = data.map(mapDbToOrder);
           try {
             localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(cloudOrders));
-          } catch (e) {
-            // Ignorer si quota plein
-          }
+          } catch (e) {}
           return cloudOrders;
         }
       } catch (err) {
-        console.warn('[Supabase] Délai dépassé ou erreur commandes distantes, bascule locale immédiate:', err);
+        console.warn('[Supabase] Délai dépassé commandes distantes, repli cache:', err);
       }
     }
 
-    // 2. Repli automatique sur le stockage local
-    const raw = loadFromStorage<Order[]>(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
-    const seen = new Set<string>();
-    const cleaned: Order[] = [];
-    for (const ord of raw) {
-      const key = ord.id || ord.orderNumber;
-      if (key && !seen.has(key)) {
-        seen.add(key);
-        cleaned.push(ord);
-      }
-    }
-    if (cleaned.length !== raw.length) {
-      try {
-        localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(cleaned));
-      } catch (e) {
-        console.warn('Failed to prune duplicate orders in storage', e);
-      }
-    }
-    return cleaned;
+    // Repli sur le stockage local
+    return loadFromStorage<Order[]>(STORAGE_KEYS.ORDERS, INITIAL_ORDERS);
   },
 
   async getOrderById(id: string): Promise<Order | null> {
@@ -277,9 +427,7 @@ export const api = {
       try {
         const { data, error } = await supabase.from('orders').select('*').eq('id', id).single();
         if (!error && data) return mapDbToOrder(data);
-      } catch (e) {
-        // Fallback
-      }
+      } catch (e) {}
     }
     const orders = await this.getOrders();
     return orders.find(o => o.id === id) || null;
@@ -295,18 +443,20 @@ export const api = {
           .ilike('customer_phone', `%${cleanQuery}%`)
           .order('created_at', { ascending: false });
         if (!error && Array.isArray(data)) return data.map(mapDbToOrder);
-      } catch (e) {
-        // Fallback
-      }
+      } catch (e) {}
     }
     const orders = await this.getOrders();
     return orders.filter(o => o.customerPhone.replace(/\s+/g, '').includes(cleanQuery));
   },
 
+  /**
+   * Création de commande avec architecture hybride :
+   * 1. Tentative d'appel de l'Edge Function Serverless 'create-order' (recalcul prix & Telegram)
+   * 2. Fallback automatique sur insertion directe Supabase + RPC decrease_product_stock
+   */
   async createOrder(
     data: Omit<Order, 'id' | 'orderNumber' | 'createdAt' | 'updatedAt'>
   ): Promise<Order> {
-    const orders = await this.getOrders();
     const randomSuffix = Math.floor(1000 + Math.random() * 9000);
     const uniqueId = `ord-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
     const orderNumber = `CMD-DZ-${randomSuffix}`;
@@ -319,34 +469,41 @@ export const api = {
       updatedAt: new Date().toISOString(),
     };
 
-    // 1. Sauvegarde dans le Cloud Supabase (Source de vérité absolue)
+    // 1. TENTATIVE VIA EDGE FUNCTION 'create-order'
     if (supabase && isSupabaseConfigured) {
-      const payload = mapOrderToDb(newOrder);
-      const { data: insertedData, error } = await supabase
-        .from('orders')
-        .insert([payload])
-        .select()
-        .single();
+      try {
+        const { data: edgeData, error: edgeErr } = await supabase.functions.invoke('create-order', {
+          body: newOrder,
+        });
 
-      if (error) {
-        console.error('[Supabase] Erreur critique insertion commande distante:', error);
-        throw new Error(`Échec de validation de la commande dans la base centrale: ${error.message}`);
+        if (!edgeErr && edgeData && edgeData.success && edgeData.order) {
+          console.log('[Edge Function] Commande validée et traitée côté serveur:', edgeData.order.orderNumber);
+          const confirmed = edgeData.order;
+          const currentOrders = await this.getOrders();
+          saveToStorage(STORAGE_KEYS.ORDERS, [confirmed, ...currentOrders.filter(o => o.id !== confirmed.id)]);
+          return confirmed;
+        }
+      } catch (edgeInvokeErr) {
+        console.warn('[Edge Function] Fonction non disponible ou erreur, bascule vers insertion directe:', edgeInvokeErr);
       }
 
-      console.log('[Supabase] Commande confirmée et enregistrée avec succès dans le Cloud:', orderNumber);
-
-      const confirmedOrder = insertedData ? mapDbToOrder(insertedData) : newOrder;
-
-      // 2. Cache local réactif avec la commande confirmée par Supabase
-      const updated = [
-        confirmedOrder,
-        ...orders.filter(o => o.id !== uniqueId && o.orderNumber !== orderNumber),
-      ];
-      saveToStorage(STORAGE_KEYS.ORDERS, updated);
-
-      // Déduction automatique du stock pour les articles commandés
+      // 2. FALLBACK INSERTION DIRECTE DANS SUPABASE POSTGRESQL
       try {
-        const products = await this.getProducts();
+        const payload = mapOrderToDb(newOrder);
+        const { data: insertedData, error } = await supabase
+          .from('orders')
+          .insert([payload])
+          .select()
+          .single();
+
+        if (error) {
+          console.error('[Supabase] Erreur critique insertion commande distante:', error);
+          throw new Error(`Échec de validation de la commande dans la base centrale: ${error.message}`);
+        }
+
+        const confirmedOrder = insertedData ? mapDbToOrder(insertedData) : newOrder;
+
+        // Décrémentation atomique du stock via RPC Supabase
         const itemsToDeduct = (data.items && data.items.length > 0)
           ? data.items
           : [{
@@ -357,73 +514,36 @@ export const api = {
             }];
 
         for (const item of itemsToDeduct) {
-          const product = products.find(p => p.id === item.productId);
-          if (product) {
-            const variantIdx = product.variants.findIndex(
+          try {
+            const product = await this.getProductById(item.productId);
+            const variant = product?.variants.find(
               v => v.colorName === item.selectedColor && v.size === item.selectedSize
             );
-            if (variantIdx !== -1) {
-              product.variants[variantIdx].stock = Math.max(
-                0,
-                product.variants[variantIdx].stock - item.quantity
-              );
-              product.totalStock = product.variants.reduce((acc, v) => acc + v.stock, 0);
-              await this.updateProduct(product.id, {
-                variants: product.variants,
-                totalStock: product.totalStock,
+            if (variant) {
+              await supabase.rpc('decrease_product_stock', {
+                p_product_id: item.productId,
+                p_variant_id: variant.id,
+                p_quantity: item.quantity,
               });
             }
+          } catch (rpcErr) {
+            console.warn('[Supabase RPC] Décrémentation de stock RPC ignorée:', rpcErr);
           }
         }
-      } catch (stockErr) {
-        console.warn('Erreur lors de la déduction de stock:', stockErr);
-      }
 
-      return confirmedOrder;
+        const currentOrders = await this.getOrders();
+        saveToStorage(STORAGE_KEYS.ORDERS, [confirmedOrder, ...currentOrders.filter(o => o.id !== confirmedOrder.id)]);
+        return confirmedOrder;
+      } catch (directInsertErr: any) {
+        console.error('[Supabase] Erreur insertion directe commande:', directInsertErr);
+        throw directInsertErr;
+      }
     }
 
-    // 2. Repli hors-ligne / développement local uniquement si Supabase non configuré
-    const updated = [
-      newOrder,
-      ...orders.filter(o => o.id !== uniqueId && o.orderNumber !== orderNumber),
-    ];
+    // 3. Fallback hors-ligne
+    const orders = await this.getOrders();
+    const updated = [newOrder, ...orders.filter(o => o.id !== uniqueId)];
     saveToStorage(STORAGE_KEYS.ORDERS, updated);
-
-    // Déduction automatique du stock pour les articles commandés
-    try {
-      const products = await this.getProducts();
-      const itemsToDeduct = (data.items && data.items.length > 0)
-        ? data.items
-        : [{
-            productId: data.productId,
-            selectedColor: data.selectedColor,
-            selectedSize: data.selectedSize,
-            quantity: data.quantity,
-          }];
-
-      for (const item of itemsToDeduct) {
-        const product = products.find(p => p.id === item.productId);
-        if (product) {
-          const variantIdx = product.variants.findIndex(
-            v => v.colorName === item.selectedColor && v.size === item.selectedSize
-          );
-          if (variantIdx !== -1) {
-            product.variants[variantIdx].stock = Math.max(
-              0,
-              product.variants[variantIdx].stock - item.quantity
-            );
-            product.totalStock = product.variants.reduce((acc, v) => acc + v.stock, 0);
-            await this.updateProduct(product.id, {
-              variants: product.variants,
-              totalStock: product.totalStock,
-            });
-          }
-        }
-      }
-    } catch (err) {
-      console.warn('Failed to auto-decrement stock', err);
-    }
-
     return newOrder;
   },
 
@@ -438,10 +558,7 @@ export const api = {
       ...(notes !== undefined ? { notes } : {}),
       updatedAt: new Date().toISOString(),
     };
-    orders[index] = updatedOrder;
-    saveToStorage(STORAGE_KEYS.ORDERS, [...orders]);
 
-    // Synchronisation Supabase
     if (supabase && isSupabaseConfigured) {
       try {
         await supabase
@@ -453,10 +570,12 @@ export const api = {
           })
           .eq('id', orderId);
       } catch (e) {
-        console.warn('[Supabase] Erreur de mise à jour du statut distant:', e);
+        console.warn('[Supabase] Erreur mise à jour statut commande:', e);
       }
     }
 
+    orders[index] = updatedOrder;
+    saveToStorage(STORAGE_KEYS.ORDERS, [...orders]);
     return updatedOrder;
   },
 
@@ -465,20 +584,32 @@ export const api = {
     const filtered = orders.filter(o => o.id !== orderId);
     saveToStorage(STORAGE_KEYS.ORDERS, filtered);
 
-    // Suppression Supabase
     if (supabase && isSupabaseConfigured) {
       try {
         await supabase.from('orders').delete().eq('id', orderId);
       } catch (e) {
-        console.warn('[Supabase] Erreur suppression commande distante:', e);
+        console.warn('[Supabase] Erreur suppression commande:', e);
       }
     }
-
     return true;
   },
 
   // ===================== WILAYAS (58) =====================
   async getWilayas(): Promise<Wilaya[]> {
+    if (supabase && isSupabaseConfigured) {
+      try {
+        const { data, error } = await supabase
+          .from('wilayas')
+          .select('*')
+          .order('id', { ascending: true });
+
+        if (!error && Array.isArray(data) && data.length > 0) {
+          return data.map(mapDbToWilaya);
+        }
+      } catch (e) {
+        console.warn('[Supabase] Erreur récupération Wilayas distantes:', e);
+      }
+    }
     return loadFromStorage<Wilaya[]>(STORAGE_KEYS.WILAYAS, rawWilayas as Wilaya[]);
   },
 
@@ -488,6 +619,22 @@ export const api = {
     if (index === -1) throw new Error(`Wilaya ${id} not found`);
 
     const updatedWilaya = { ...wilayas[index], ...updates };
+
+    if (supabase && isSupabaseConfigured) {
+      try {
+        await supabase
+          .from('wilayas')
+          .update({
+            home_delivery_price: updatedWilaya.homeDeliveryPrice,
+            stop_desk_price: updatedWilaya.stopDeskPrice,
+            is_deliverable: updatedWilaya.isDeliverable,
+          })
+          .eq('id', id);
+      } catch (e) {
+        console.warn('[Supabase] Erreur mise à jour Wilaya distante:', e);
+      }
+    }
+
     wilayas[index] = updatedWilaya;
     saveToStorage(STORAGE_KEYS.WILAYAS, [...wilayas]);
     return updatedWilaya;
@@ -495,13 +642,28 @@ export const api = {
 
   async bulkUpdateWilayas(updatedWilayas: Wilaya[]): Promise<void> {
     saveToStorage(STORAGE_KEYS.WILAYAS, updatedWilayas);
+    if (supabase && isSupabaseConfigured) {
+      try {
+        for (const w of updatedWilayas) {
+          await supabase
+            .from('wilayas')
+            .update({
+              home_delivery_price: w.homeDeliveryPrice,
+              stop_desk_price: w.stopDeskPrice,
+              is_deliverable: w.isDeliverable,
+            })
+            .eq('id', w.id);
+        }
+      } catch (e) {
+        console.warn('Erreur mise à jour en masse Wilayas:', e);
+      }
+    }
   },
 
   // ===================== STORE CONFIG (WHITE-LABEL) =====================
   async getStoreConfig(): Promise<StoreConfig> {
     let config = loadFromStorage<StoreConfig>(STORAGE_KEYS.CONFIG, DEFAULT_STORE_CONFIG);
 
-    // Synchronisation depuis le Cloud Supabase (avec timeout de sécurité de 3.5s)
     if (supabase && isSupabaseConfigured) {
       try {
         const queryPromise = supabase
@@ -510,7 +672,7 @@ export const api = {
           .eq('id', 'current')
           .maybeSingle();
 
-        const { data, error } = await withTimeout<any>(queryPromise, 3500);
+        const { data, error } = await withTimeout<any>(queryPromise, 4000);
 
         if (!error && data) {
           const validatedTheme =
@@ -518,7 +680,6 @@ export const api = {
               ? data.theme
               : config.theme;
 
-          // Récupération de free_shipping_enabled depuis la colonne dédiée OU depuis l'objet theme JSONB
           const isFreeShippingOn = data.free_shipping_enabled !== undefined
             ? Boolean(data.free_shipping_enabled)
             : (data.theme && typeof data.theme === 'object' && (data.theme as any).free_shipping_enabled !== undefined
@@ -546,12 +707,10 @@ export const api = {
           };
           try {
             localStorage.setItem(STORAGE_KEYS.CONFIG, JSON.stringify(config));
-          } catch (e) {
-            // Ignorer si quota plein
-          }
+          } catch (e) {}
         }
       } catch (err) {
-        console.warn('[Supabase] Config cloud ignorée ou délai dépassé, utilisation locale:', err);
+        console.warn('[Supabase] Config cloud ignorée ou délai dépassé:', err);
       }
     }
 
@@ -567,10 +726,8 @@ export const api = {
       applyThemeVariables(updated.theme);
     }
 
-    // Synchronisation vers Supabase Cloud
     if (supabase && isSupabaseConfigured) {
       try {
-        // Sauvegarder free_shipping_enabled dans theme JSONB pour éviter toute erreur de colonne SQL
         const themeToPersist = {
           ...(updated.theme || current.theme),
           free_shipping_enabled: updated.freeShippingEnabled ?? false,
@@ -588,6 +745,7 @@ export const api = {
           facebook_url: updated.facebookUrl,
           tiktok_url: updated.tiktokUrl,
           free_shipping_threshold: updated.freeShippingThreshold,
+          free_shipping_enabled: updated.freeShippingEnabled ?? false,
           theme: themeToPersist,
           meta_pixel_id: updated.metaPixelId,
           tiktok_pixel_id: updated.tiktokPixelId,
@@ -597,17 +755,13 @@ export const api = {
           updated_at: new Date().toISOString(),
         };
 
-        const { error } = await supabase
+        await supabase
           .from('store_config')
           .upsert(cloudPayload, { onConflict: 'id' });
 
-        if (error) {
-          console.error('[Supabase] Erreur enregistrement store_config:', error);
-        } else {
-          console.log('[Supabase] store_config enregistré avec succès dans le Cloud !');
-        }
+        console.log('[Supabase] store_config synchronisé dans PostgreSQL !');
       } catch (err) {
-        console.warn('Supabase store_config sync not ready, saved in localStorage only', err);
+        console.warn('Supabase store_config sync non disponible:', err);
       }
     }
 
@@ -639,7 +793,6 @@ export const api = {
     const updated = [newReview, ...reviews];
     saveToStorage(STORAGE_KEYS.REVIEWS, updated);
 
-    // Recalculate product rating
     try {
       const prodReviews = updated.filter(r => r.productId === data.productId);
       const avgRating = Number(
@@ -656,9 +809,7 @@ export const api = {
     return newReview;
   },
 
-  // Reset to factory defaults for demo
   resetAllDemoData(): void {
-    localStorage.removeItem(STORAGE_KEYS.PRODUCTS);
     localStorage.removeItem(STORAGE_KEYS.ORDERS);
     localStorage.removeItem(STORAGE_KEYS.WILAYAS);
     localStorage.removeItem(STORAGE_KEYS.CONFIG);
@@ -666,4 +817,3 @@ export const api = {
     window.location.reload();
   },
 };
-

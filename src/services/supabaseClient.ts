@@ -7,12 +7,12 @@ const metaEnv = (import.meta as any).env || {};
 const supabaseUrl =
   metaEnv.VITE_SUPABASE_URL ||
   metaEnv.NEXT_PUBLIC_SUPABASE_URL ||
-  'https://fyvjvdvljgxgezwbwljc.supabase.co';
+  'https://omzqajugkhkjxlkfmxpo.supabase.co';
 
 const supabaseKey =
   metaEnv.VITE_SUPABASE_ANON_KEY ||
   metaEnv.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  'sb_publishable_d3apl64eOeXREMX63ITmKA_5ecTkLZp';
+  'sb_publishable_Pi9BqXixbbwCCJDbYZr9bw_HfbiKPSp';
 
 export const isSupabaseConfigured = Boolean(
   supabaseUrl &&
@@ -21,12 +21,13 @@ export const isSupabaseConfigured = Boolean(
   !supabaseUrl.includes('votre-projet')
 );
 
-// Initialisation du client Supabase pour navigateur (SPA)
+// Initialisation du client Supabase pour navigateur (SPA) avec persistance de session Auth
 export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseKey, {
       auth: {
-        persistSession: false,
-        autoRefreshToken: false,
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
       },
     })
   : null;

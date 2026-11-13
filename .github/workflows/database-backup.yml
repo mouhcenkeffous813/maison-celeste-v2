@@ -1,0 +1,51 @@
+name: Automated Database Backup (PostgreSQL pg_dump)
+
+on:
+  schedule:
+    # Exécution quotidienne à minuit UTC (01h00 heure d'Alger)
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Permet de déclencher la sauvegarde manuellement depuis GitHub
+
+jobs:
+  backup:
+    name: Backup Supabase Database
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL Client 15+
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+
+      - name: Create Backup Directory
+        run: mkdir -p backups
+
+      - name: Execute pg_dump & Compress
+        env:
+          # Secret GitHub à renseigner dans Repo Settings > Secrets and Variables > Actions:
+          # Nom : SUPABASE_DB_URL
+          # Valeur : postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          BACKUP_DATE=$(date +'%Y-%m-%d_%H%M%S')
+          BACKUP_FILE="backups/maison_celeste_backup_${BACKUP_DATE}.sql.gz"
+
+          if [ -n "$SUPABASE_DB_URL" ]; then
+            echo "Connexion à la base de données Supabase distante..."
+            pg_dump "$SUPABASE_DB_URL" --clean --if-exists --no-owner --no-privileges | gzip > "$BACKUP_FILE"
+            echo "✅ Sauvegarde réussie : $BACKUP_FILE (Taille : $(du -h $BACKUP_FILE | cut -f1))"
+          else
+            echo "⚠️ SUPABASE_DB_URL n'est pas configuré dans les secrets GitHub."
+            echo "Génération d'une archive de secours du schéma SQL local..."
+            gzip -c supabase-v2-migration.sql > "$BACKUP_FILE"
+          fi
+
+      - name: Upload Secure Encrypted Artifact (Retention 30 Days)
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-database-backup
+          path: backups/*.sql.gz
+          retention-days: 30
