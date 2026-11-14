@@ -14,11 +14,15 @@ import {
   Check,
   Upload,
   Image as ImageIcon,
+  Send,
+  RefreshCw,
+  Bot,
 } from 'lucide-react';
 import { useStore } from '../../context/StoreContext';
 import { THEME_PRESETS } from '../../config/store.config';
 import { ThemePreset } from '../../types';
 import { compressImageFile } from '../../utils/imageCompressor';
+import { telegramService } from '../../services/telegramService';
 
 export const AdminSettings: React.FC = () => {
   const { config, updateConfig, setThemePreset, resetDemoData, showToast } = useStore();
@@ -38,6 +42,12 @@ export const AdminSettings: React.FC = () => {
   const [tiktokPixelId, setTiktokPixelId] = useState(config.tiktokPixelId || '');
   const [deliveryTimeEstimate, setDeliveryTimeEstimate] = useState(config.deliveryTimeEstimate);
   const [announcementText, setAnnouncementText] = useState(config.announcementText);
+
+  // Telegram Notifications state
+  const [telegramToken, setTelegramToken] = useState<string>(() => telegramService.getBotToken());
+  const [telegramChatId, setTelegramChatId] = useState<string>(() => telegramService.getChatId());
+  const [isTestingTelegram, setIsTestingTelegram] = useState(false);
+  const [isDetectingChatId, setIsDetectingChatId] = useState(false);
 
   // Custom Theme state
   const [customPrimary, setCustomPrimary] = useState(config.theme.primary);
@@ -84,6 +94,48 @@ export const AdminSettings: React.FC = () => {
     await setThemePreset(customTheme);
   };
 
+  const handleTestTelegram = async () => {
+    if (!telegramChatId.trim()) {
+      showToast('Veuillez renseigner votre Chat ID avant de tester.', 'error');
+      return;
+    }
+    setIsTestingTelegram(true);
+    try {
+      const res = await telegramService.sendTestNotification(telegramToken, telegramChatId);
+      if (res.success) {
+        showToast(res.message, 'success');
+      } else {
+        showToast(res.message, 'error');
+      }
+    } catch (e: any) {
+      showToast(e.message || 'Erreur lors du test Telegram', 'error');
+    } finally {
+      setIsTestingTelegram(false);
+    }
+  };
+
+  const handleAutoDetectChatId = async () => {
+    setIsDetectingChatId(true);
+    try {
+      const chats = await telegramService.fetchRecentChatIds(telegramToken);
+      if (chats.length > 0) {
+        const primaryChat = chats[0];
+        setTelegramChatId(String(primaryChat.id));
+        telegramService.saveConfig(telegramToken, String(primaryChat.id));
+        showToast(`Chat ID détecté avec succès : ${primaryChat.name} (${primaryChat.id})`, 'success');
+      } else {
+        showToast(
+          'Aucun message récent. Ouvrez @Colisssbot sur Telegram, cliquez sur "Démarrer" puis réessayez !',
+          'info'
+        );
+      }
+    } catch (e) {
+      showToast('Erreur lors de la détection du Chat ID', 'error');
+    } finally {
+      setIsDetectingChatId(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -104,6 +156,9 @@ export const AdminSettings: React.FC = () => {
         adminPin: config.adminPin || '1234',
         theme: selectedTheme,
       });
+
+      // Sauvegarde de la configuration Telegram
+      telegramService.saveConfig(telegramToken, telegramChatId);
     } catch (err) {
       console.error('Erreur sauvegarde config:', err);
       showToast('Erreur lors de la sauvegarde', 'error');
@@ -472,25 +527,82 @@ export const AdminSettings: React.FC = () => {
             </div>
           </div>
 
-          {/* Authentification Sécurisée (Supabase Auth) */}
-          <div className="pt-3 border-t border-stone-100">
-            <div className="p-4 rounded-2xl bg-stone-50 border border-stone-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-stone-900 text-white flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-5 h-5 text-store-primary" />
+          {/* Notifications Telegram Commerçant */}
+          <div className="pt-4 border-t border-stone-100">
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-sky-50/70 to-stone-50 border border-sky-100">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center shadow-xs shrink-0">
+                    <Send className="w-5 h-5 -rotate-12 translate-x-0.5" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-stone-900 flex items-center gap-2">
+                      <span>Bot Telegram de Nouvelles Commandes</span>
+                      <span className="text-[10px] font-bold text-sky-700 bg-sky-100 px-2 py-0.5 rounded-full">
+                        @Colisssbot
+                      </span>
+                    </h4>
+                    <p className="text-xs text-stone-500">
+                      Recevez une notification instantanée et ultra-détaillée sur votre téléphone à chaque nouvelle commande.
+                    </p>
+                  </div>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={handleTestTelegram}
+                  disabled={isTestingTelegram || !telegramChatId.trim()}
+                  className="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-50 cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>{isTestingTelegram ? 'Envoi en cours...' : 'Tester le Bot'}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs font-bold text-stone-800">
-                    Sécurité & Authentification Administrateur
+                  <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider mb-1">
+                    Token du Bot Telegram
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="ex: 9023085999:AAGBO6w0..."
+                    value={telegramToken}
+                    onChange={e => setTelegramToken(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white rounded-xl border border-stone-200 focus:outline-none focus:border-sky-500 font-mono"
+                  />
+                  <p className="text-[11px] text-stone-400 mt-1">
+                    Fourni par BotFather. Connecté par défaut à @Colisssbot.
                   </p>
-                  <p className="text-[11px] text-stone-500">
-                    Protégé par Supabase Auth (Email & Mot de passe crypté). L'ancien code PIN a été retiré.
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
+                      Votre Chat ID Telegram
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleAutoDetectChatId}
+                      disabled={isDetectingChatId}
+                      className="text-[11px] text-sky-600 hover:text-sky-800 font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isDetectingChatId ? 'animate-spin' : ''}`} />
+                      <span>{isDetectingChatId ? 'Détection...' : 'Détecter auto'}</span>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="ex: 123456789"
+                    value={telegramChatId}
+                    onChange={e => setTelegramChatId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white rounded-xl border border-stone-200 focus:outline-none focus:border-sky-500 font-mono font-bold"
+                  />
+                  <p className="text-[11px] text-stone-500 mt-1">
+                    Pour l'obtenir : ouvrez Telegram, cherchez <strong>@Colisssbot</strong>, cliquez sur <strong>Démarrer</strong> (ou envoyez /start), puis cliquez sur <em>Détecter auto</em>.
                   </p>
                 </div>
               </div>
-              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full whitespace-nowrap self-start sm:self-auto">
-                ✓ Supabase Auth Actif
-              </span>
             </div>
           </div>
         </div>

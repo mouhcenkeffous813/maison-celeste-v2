@@ -5,6 +5,7 @@ import { INITIAL_REVIEWS } from '../data/mockReviews';
 import { DEFAULT_STORE_CONFIG, applyThemeVariables } from '../config/store.config';
 import rawWilayas from '../config/wilayas.json';
 import { supabase, isSupabaseConfigured } from './supabaseClient';
+import { telegramService } from './telegramService';
 
 export const ITEMS_DELIMITER = '\n\n__MC_ITEMS_DATA__:';
 
@@ -481,6 +482,8 @@ export const api = {
           const confirmed = edgeData.order;
           const currentOrders = await this.getOrders();
           saveToStorage(STORAGE_KEYS.ORDERS, [confirmed, ...currentOrders.filter(o => o.id !== confirmed.id)]);
+          // Notification instantanée Telegram détaillée
+          telegramService.sendNewOrderNotification(confirmed).catch(e => console.warn('[Telegram] Erreur notification:', e));
           return confirmed;
         }
       } catch (edgeInvokeErr) {
@@ -531,6 +534,8 @@ export const api = {
 
         const currentOrders = await this.getOrders();
         saveToStorage(STORAGE_KEYS.ORDERS, [confirmedOrder, ...currentOrders.filter(o => o.id !== confirmedOrder.id)]);
+        // Notification instantanée Telegram détaillée
+        telegramService.sendNewOrderNotification(confirmedOrder).catch(e => console.warn('[Telegram] Erreur notification:', e));
         return confirmedOrder;
       } catch (directInsertErr: any) {
         console.error('[Supabase] Erreur insertion directe commande:', directInsertErr);
