@@ -2,6 +2,7 @@ import { Order } from '../types';
 
 // Configuration par défaut Telegram (Bot Colisssbot de Maison Céleste)
 export const DEFAULT_TELEGRAM_BOT_TOKEN = '9023085999:AAGBO6w0C0jb7w4oiy2j6wqwk782J34mACs';
+export const DEFAULT_TELEGRAM_CHAT_ID = '682438619';
 
 const STORAGE_KEYS = {
   BOT_TOKEN: 'celeste_telegram_bot_token',
@@ -30,7 +31,7 @@ export const telegramService = {
     return (
       localStorage.getItem(STORAGE_KEYS.CHAT_ID) ||
       metaEnv.VITE_TELEGRAM_CHAT_ID ||
-      ''
+      DEFAULT_TELEGRAM_CHAT_ID
     );
   },
 

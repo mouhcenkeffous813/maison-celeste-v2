@@ -225,8 +225,8 @@ serve(async (req) => {
     }
 
     // 9. NOTIFICATION TELEGRAM INSTANTANÉE AU COMMERÇANT
-    const telegramBotToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
-    const telegramChatId = Deno.env.get('TELEGRAM_CHAT_ID');
+    const telegramBotToken = Deno.env.get('TELEGRAM_BOT_TOKEN') || '9023085999:AAGBO6w0C0jb7w4oiy2j6wqwk782J34mACs';
+    const telegramChatId = Deno.env.get('TELEGRAM_CHAT_ID') || '682438619';
 
     if (telegramBotToken && telegramChatId) {
       try {
