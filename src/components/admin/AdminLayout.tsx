@@ -100,25 +100,25 @@ export const AdminLayout: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-stone-100/70 text-stone-900 flex flex-col md:flex-row">
+    <div className="min-h-screen bg-stone-100/70 dark:bg-stone-950 text-stone-900 dark:text-stone-100 flex flex-col md:flex-row">
       
-      {/* Sidebar for Desktop */}
-      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-stone-200/80 min-h-screen p-4 justify-between sticky top-0 h-screen">
+      {/* Sidebar for Desktop - Fixed to left, always follows the user smoothly when scrolling */}
+      <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-stone-900 border-r border-stone-200/80 dark:border-stone-800 p-4 justify-between fixed inset-y-0 left-0 z-20 overflow-y-auto no-scrollbar shadow-xs">
         <div className="space-y-6">
           {/* Logo & Store Info */}
           <div className="px-2 pt-2 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-stone-900 text-white flex items-center justify-center font-serif text-lg font-bold shadow-sm">
+            <div className="w-10 h-10 rounded-2xl bg-stone-900 dark:bg-stone-800 text-white flex items-center justify-center font-serif text-lg font-bold shadow-sm">
               É
             </div>
             <div className="min-w-0">
-              <h2 className="font-serif font-bold text-sm text-stone-900 truncate">
+              <h2 className="font-serif font-bold text-sm text-stone-900 dark:text-white truncate">
                 {config.storeName}
               </h2>
               <span className="text-[10px] text-store-primary font-bold tracking-wider uppercase block">
                 Admin Dashboard
               </span>
               {adminUserEmail && (
-                <span className="text-[10px] text-emerald-600 font-mono block truncate" title={adminUserEmail}>
+                <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono block truncate" title={adminUserEmail}>
                   ● {adminUserEmail}
                 </span>
               )}
@@ -136,12 +136,12 @@ export const AdminLayout: React.FC = () => {
                   onClick={() => setActiveTab(item.id as AdminTab)}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold transition-all ${
                     isActive
-                      ? 'bg-stone-900 text-white shadow-xs'
-                      : 'text-stone-600 hover:bg-stone-100 hover:text-stone-900'
+                      ? 'bg-stone-900 text-white shadow-xs dark:bg-stone-800 dark:text-white dark:border dark:border-stone-700'
+                      : 'text-stone-600 dark:text-stone-400 hover:bg-stone-100 dark:hover:bg-stone-800 hover:text-stone-900 dark:hover:text-white'
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <Icon className={`w-4 h-4 ${isActive ? 'text-store-primary' : 'text-stone-400'}`} />
+                    <Icon className={`w-4 h-4 ${isActive ? 'text-store-primary' : 'text-stone-400 dark:text-stone-500'}`} />
                     <span>{item.label}</span>
                   </div>
 
@@ -157,21 +157,21 @@ export const AdminLayout: React.FC = () => {
         </div>
 
         {/* Bottom Actions: View Storefront & Logout */}
-        <div className="space-y-2 pt-4 border-t border-stone-100">
+        <div className="space-y-2 pt-4 border-t border-stone-100 dark:border-stone-800">
           <button
             onClick={toggleDarkMode}
-            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-stone-700 hover:bg-stone-100 transition-colors"
+            className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
           >
             <div className="flex items-center gap-2.5">
               {isDarkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-stone-500" />}
               <span>{isDarkMode ? 'Mode Clair' : 'Mode Sombre'}</span>
             </div>
-            <span className="text-[10px] text-stone-400 font-bold">{isDarkMode ? 'ON' : 'OFF'}</span>
+            <span className="text-[10px] text-stone-400 dark:text-stone-500 font-bold">{isDarkMode ? 'ON' : 'OFF'}</span>
           </button>
 
           <button
             onClick={() => setCurrentView('home')}
-            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-stone-700 hover:bg-stone-100 transition-colors"
+            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
           >
             <Store className="w-4 h-4 text-stone-500" />
             <span>Voir la Boutique</span>
@@ -179,7 +179,7 @@ export const AdminLayout: React.FC = () => {
 
           <button
             onClick={logoutAdmin}
-            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
+            className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-2xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
           >
             <LogOut className="w-4 h-4" />
             <span>Déconnexion</span>
@@ -187,12 +187,12 @@ export const AdminLayout: React.FC = () => {
         </div>
       </aside>
 
-      {/* Mobile Top Header */}
-      <div className="md:hidden bg-white border-b border-stone-200 p-3.5 flex items-center justify-between sticky top-0 z-30">
+      {/* Mobile Top Header - Fixed/Sticky on mobile */}
+      <div className="md:hidden bg-white/95 dark:bg-stone-900/95 backdrop-blur-md border-b border-stone-200 dark:border-stone-800 p-3.5 flex items-center justify-between sticky top-0 z-30 shadow-xs">
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className="p-1.5 rounded-xl hover:bg-stone-100 text-stone-700 transition-colors"
+            className="p-1.5 rounded-xl hover:bg-stone-100 dark:hover:bg-stone-800 text-stone-700 dark:text-stone-200 transition-colors"
             aria-label="Ouvrir la navigation latérale"
           >
             <Menu className="w-5 h-5" />
@@ -201,10 +201,10 @@ export const AdminLayout: React.FC = () => {
             <img
               src={config.logoUrl || '/orlea-logo.svg'}
               alt={config.storeName}
-              className="w-7 h-7 rounded-lg object-cover border border-stone-200"
+              className="w-7 h-7 rounded-lg object-cover border border-stone-200 dark:border-stone-700"
             />
             <div>
-              <h2 className="font-serif font-bold text-xs text-stone-900 leading-tight">{config.storeName}</h2>
+              <h2 className="font-serif font-bold text-xs text-stone-900 dark:text-white leading-tight">{config.storeName}</h2>
               <span className="text-[9px] text-store-primary font-bold uppercase tracking-wider">ADMINISTRATION</span>
             </div>
           </div>
@@ -212,7 +212,7 @@ export const AdminLayout: React.FC = () => {
 
         <button
           onClick={() => setCurrentView('home')}
-          className="px-3 py-1.5 rounded-xl bg-stone-900 text-white text-xs font-medium flex items-center gap-1.5 shadow-xs"
+          className="px-3 py-1.5 rounded-xl bg-stone-900 dark:bg-stone-800 text-white text-xs font-medium flex items-center gap-1.5 shadow-xs"
         >
           <Store className="w-3.5 h-3.5" />
           <span>Boutique</span>
@@ -236,21 +236,21 @@ export const AdminLayout: React.FC = () => {
 
         {/* Panneau latéral coulissant (Sidebar ~280px) */}
         <div
-          className={`absolute inset-y-0 left-0 w-[280px] max-w-[85vw] bg-white text-stone-900 shadow-2xl flex flex-col justify-between z-10 transition-transform duration-300 ease-out border-r border-stone-200 ${
+          className={`absolute inset-y-0 left-0 w-[280px] max-w-[85vw] bg-white dark:bg-stone-900 text-stone-900 dark:text-stone-100 shadow-2xl flex flex-col justify-between z-10 transition-transform duration-300 ease-out border-r border-stone-200 dark:border-stone-800 ${
             isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
           {/* Header de la Sidebar */}
           <div>
-            <div className="p-4 border-b border-stone-100 flex items-center justify-between bg-stone-50/70">
+            <div className="p-4 border-b border-stone-100 dark:border-stone-800 flex items-center justify-between bg-stone-50/70 dark:bg-stone-950/60">
               <div className="flex items-center gap-2.5 min-w-0">
                 <img
                   src={config.logoUrl || '/orlea-logo.svg'}
                   alt={config.storeName}
-                  className="w-9 h-9 rounded-2xl object-cover border border-stone-200 shadow-xs shrink-0"
+                  className="w-9 h-9 rounded-2xl object-cover border border-stone-200 dark:border-stone-700 shadow-xs shrink-0"
                 />
                 <div className="min-w-0">
-                  <h2 className="font-serif font-bold text-sm text-stone-900 truncate">
+                  <h2 className="font-serif font-bold text-sm text-stone-900 dark:text-white truncate">
                     {config.storeName}
                   </h2>
                   <span className="text-[10px] text-store-primary font-bold uppercase tracking-wider block">
@@ -260,7 +260,7 @@ export const AdminLayout: React.FC = () => {
               </div>
               <button
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="p-1.5 rounded-full hover:bg-stone-200/70 text-stone-500 transition-colors shrink-0"
+                className="p-1.5 rounded-full hover:bg-stone-200/70 dark:hover:bg-stone-800 text-stone-500 transition-colors shrink-0"
                 aria-label="Fermer le menu"
               >
                 <X className="w-5 h-5" />
@@ -281,8 +281,8 @@ export const AdminLayout: React.FC = () => {
                     }}
                     className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                       isActive
-                        ? 'bg-stone-900 text-white shadow-sm'
-                        : 'text-stone-700 hover:bg-stone-100 active:scale-[0.98]'
+                        ? 'bg-stone-900 text-white shadow-sm dark:bg-stone-800 dark:border dark:border-stone-700'
+                        : 'text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 active:scale-[0.98]'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -301,16 +301,16 @@ export const AdminLayout: React.FC = () => {
           </div>
 
           {/* Footer de la Sidebar Mobile : Mode Sombre, Voir Boutique, Déconnexion */}
-          <div className="p-3 border-t border-stone-100 bg-stone-50/70 space-y-1.5">
+          <div className="p-3 border-t border-stone-100 dark:border-stone-800 bg-stone-50/70 dark:bg-stone-950/60 space-y-1.5">
             <button
               onClick={toggleDarkMode}
-              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-stone-700 hover:bg-stone-100 transition-colors"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
             >
               <div className="flex items-center gap-2.5">
                 {isDarkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4 text-stone-500" />}
                 <span>{isDarkMode ? 'Mode Clair' : 'Mode Sombre'}</span>
               </div>
-              <span className="text-[10px] text-stone-400 font-bold">{isDarkMode ? 'ON' : 'OFF'}</span>
+              <span className="text-[10px] text-stone-400 dark:text-stone-500 font-bold">{isDarkMode ? 'ON' : 'OFF'}</span>
             </button>
 
             <button
@@ -318,7 +318,7 @@ export const AdminLayout: React.FC = () => {
                 setIsMobileMenuOpen(false);
                 setCurrentView('home');
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-stone-700 hover:bg-stone-100 transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-stone-700 dark:text-stone-300 hover:bg-stone-100 dark:hover:bg-stone-800 transition-colors"
             >
               <Store className="w-4 h-4 text-stone-500" />
               <span>Voir la Boutique</span>
@@ -329,7 +329,7 @@ export const AdminLayout: React.FC = () => {
                 setIsMobileMenuOpen(false);
                 logoutAdmin();
               }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 hover:bg-rose-50 transition-colors"
+              className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
             >
               <LogOut className="w-4 h-4" />
               <span>Déconnexion</span>
@@ -338,8 +338,9 @@ export const AdminLayout: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Content Area */}
-      <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-5">
+      {/* Main Content Area Wrapper - Desktop has pl-64 to accommodate the fixed left sidebar */}
+      <div className="flex-1 md:pl-64 flex flex-col min-w-0">
+        <main className="flex-1 p-3 sm:p-6 lg:p-8 max-w-6xl mx-auto w-full space-y-5">
         
         {/* Dashboard Actions Banner with Simuler 1 Commande */}
         <div className="bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 text-white rounded-3xl p-4 sm:p-5 shadow-luxury border border-stone-700/60 flex flex-col md:flex-row md:items-center justify-between gap-3.5 animate-fadeIn">
@@ -397,6 +398,7 @@ export const AdminLayout: React.FC = () => {
         {activeTab === 'marketing' && <AdminMarketing />}
         {activeTab === 'settings' && <AdminSettings />}
       </main>
+      </div>
     </div>
   );
 };

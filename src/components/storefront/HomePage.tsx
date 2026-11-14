@@ -42,50 +42,50 @@ export const HomePage: React.FC = () => {
             L'Élégance Absolue & Le Raffinement Féminin
           </h1>
 
-          <p className="mt-2.5 sm:mt-4 text-xs sm:text-base text-stone-600 max-w-xl mx-auto font-light leading-relaxed">
+          <p className="mt-2.5 sm:mt-4 text-xs sm:text-base text-stone-600 dark:text-stone-300 max-w-xl mx-auto font-light leading-relaxed">
             {config.storeTagline || 'Découvrez nos pièces signatures pensées pour la femme moderne algérienne.'}
-            <span className="block mt-1">Livraison rapide à domicile ou en point relais dans <strong className="text-stone-900 font-semibold">les 58 Wilayas</strong> avec paiement à réception.</span>
+            <span className="block mt-1">Livraison rapide à domicile ou en point relais dans <strong className="text-stone-900 dark:text-white font-semibold">les 58 Wilayas</strong> avec paiement à réception.</span>
           </p>
 
-          {/* Trust Guarantees Bar */}
+          {/* Trust Guarantees Bar - Optimized for Light & Dark Mode */}
           <div className="mt-6 sm:mt-8 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 max-w-3xl mx-auto">
-            <div className="bg-white/90 backdrop-blur-xs p-2.5 sm:p-3 rounded-2xl border border-store-border/80 shadow-xs flex items-center gap-2 sm:gap-2.5 text-left">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-store-secondary flex items-center justify-center text-store-primary flex-shrink-0">
+            <div className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-xs p-2.5 sm:p-3 rounded-2xl border border-store-border/80 dark:border-stone-800 shadow-xs flex items-center gap-2 sm:gap-2.5 text-left">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-store-secondary dark:bg-stone-800 flex items-center justify-center text-store-primary dark:text-rose-400 flex-shrink-0">
                 <Truck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-bold text-stone-900 leading-tight truncate">58 Wilayas</p>
-                <p className="text-[9px] sm:text-[10px] text-stone-500 truncate">Livraison express</p>
+                <p className="text-[11px] font-bold text-stone-900 dark:text-stone-100 leading-tight truncate">58 Wilayas</p>
+                <p className="text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 truncate">Livraison express</p>
               </div>
             </div>
 
-            <div className="bg-white/90 backdrop-blur-xs p-2.5 sm:p-3 rounded-2xl border border-store-border/80 shadow-xs flex items-center gap-2 sm:gap-2.5 text-left">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-store-secondary flex items-center justify-center text-store-primary flex-shrink-0">
+            <div className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-xs p-2.5 sm:p-3 rounded-2xl border border-store-border/80 dark:border-stone-800 shadow-xs flex items-center gap-2 sm:gap-2.5 text-left">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-store-secondary dark:bg-stone-800 flex items-center justify-center text-store-primary dark:text-rose-400 flex-shrink-0">
                 <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-bold text-stone-900 leading-tight truncate">Paiement Cash</p>
-                <p className="text-[9px] sm:text-[10px] text-stone-500 truncate">À la réception</p>
+                <p className="text-[11px] font-bold text-stone-900 dark:text-stone-100 leading-tight truncate">Paiement Cash</p>
+                <p className="text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 truncate">À la réception</p>
               </div>
             </div>
 
-            <div className="bg-white/90 backdrop-blur-xs p-2.5 sm:p-3 rounded-2xl border border-store-border/80 shadow-xs flex items-center gap-2 sm:gap-2.5 text-left">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-store-secondary flex items-center justify-center text-store-primary flex-shrink-0">
+            <div className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-xs p-2.5 sm:p-3 rounded-2xl border border-store-border/80 dark:border-stone-800 shadow-xs flex items-center gap-2 sm:gap-2.5 text-left">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-store-secondary dark:bg-stone-800 flex items-center justify-center text-store-primary dark:text-rose-400 flex-shrink-0">
                 <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-bold text-stone-900 leading-tight truncate">Échange Facile</p>
-                <p className="text-[9px] sm:text-[10px] text-stone-500 truncate">Sous 48h garanti</p>
+                <p className="text-[11px] font-bold text-stone-900 dark:text-stone-100 leading-tight truncate">Échange Facile</p>
+                <p className="text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 truncate">Sous 48h garanti</p>
               </div>
             </div>
 
-            <div className="bg-white/90 backdrop-blur-xs p-2.5 sm:p-3 rounded-2xl border border-store-border/80 shadow-xs flex items-center gap-2 sm:gap-2.5 text-left">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-store-secondary flex items-center justify-center text-store-primary flex-shrink-0">
+            <div className="bg-white/90 dark:bg-stone-900/90 backdrop-blur-xs p-2.5 sm:p-3 rounded-2xl border border-store-border/80 dark:border-stone-800 shadow-xs flex items-center gap-2 sm:gap-2.5 text-left">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-store-secondary dark:bg-stone-800 flex items-center justify-center text-store-primary dark:text-rose-400 flex-shrink-0">
                 <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] font-bold text-stone-900 leading-tight truncate">Assistance 7j/7</p>
-                <p className="text-[9px] sm:text-[10px] text-stone-500 truncate">Direct WhatsApp</p>
+                <p className="text-[11px] font-bold text-stone-900 dark:text-stone-100 leading-tight truncate">Assistance 7j/7</p>
+                <p className="text-[9px] sm:text-[10px] text-stone-500 dark:text-stone-400 truncate">Direct WhatsApp</p>
               </div>
             </div>
           </div>
@@ -93,7 +93,7 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* Category Pills Filter */}
-      <section className="sticky top-14 sm:top-20 z-30 bg-store-base/95 backdrop-blur-md border-b border-store-border py-2 sm:py-3 shadow-xs">
+      <section className="sticky top-14 sm:top-20 z-30 bg-store-base/95 dark:bg-stone-950/95 backdrop-blur-md border-b border-store-border dark:border-stone-800 py-2 sm:py-3 shadow-xs">
         <div className="max-w-6xl mx-auto px-2.5 sm:px-4">
           <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar scroll-smooth py-0.5">
             {allCategories.map(cat => {
@@ -104,8 +104,8 @@ export const HomePage: React.FC = () => {
                   onClick={() => setSelectedCategory(cat)}
                   className={`px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs font-semibold whitespace-nowrap transition-all duration-200 cursor-pointer shrink-0 ${
                     isSelected
-                      ? 'bg-stone-900 text-white shadow-md transform scale-[1.02]'
-                      : 'bg-white text-stone-700 border border-store-border hover:border-store-primary/50 hover:bg-store-secondary/50'
+                      ? 'bg-stone-900 text-white shadow-md transform scale-[1.02] dark:bg-stone-100 dark:text-stone-900'
+                      : 'bg-white text-stone-700 border border-store-border hover:border-store-primary/50 hover:bg-store-secondary/50 dark:bg-stone-900 dark:text-stone-300 dark:border-stone-800 dark:hover:border-stone-700'
                   }`}
                 >
                   {cat}
@@ -120,15 +120,15 @@ export const HomePage: React.FC = () => {
       <section className="max-w-6xl mx-auto px-2 sm:px-4 mt-4 sm:mt-10">
         <div className="flex items-center justify-between mb-3 sm:mb-6">
           <div className="min-w-0 pr-2">
-            <h2 className="font-serif text-base sm:text-2xl font-bold text-stone-900 flex items-center gap-1.5 sm:gap-2 truncate">
+            <h2 className="font-serif text-base sm:text-2xl font-bold text-stone-900 dark:text-white flex items-center gap-1.5 sm:gap-2 truncate">
               <span className="truncate">{selectedCategory === 'Tout' ? 'Nos produits' : selectedCategory}</span>
               <span className="text-rose-500 shrink-0">❤️</span>
             </h2>
-            <p className="text-[10px] sm:text-xs text-stone-600 mt-0.5 truncate">
+            <p className="text-[10px] sm:text-xs text-stone-600 dark:text-stone-400 mt-0.5 truncate">
               Découvrez les meilleurs produits aux meilleurs prix 🔥
             </p>
           </div>
-          <span className="text-[10px] sm:text-[11px] font-medium text-store-primary bg-store-primary/10 px-2 sm:px-2.5 py-1 rounded-full shrink-0">
+          <span className="text-[10px] sm:text-[11px] font-medium text-store-primary dark:text-rose-300 bg-store-primary/10 dark:bg-rose-950/50 px-2 sm:px-2.5 py-1 rounded-full shrink-0 border border-store-primary/20 dark:border-rose-900/40">
             Livraison 58 Wilayas
           </span>
         </div>
