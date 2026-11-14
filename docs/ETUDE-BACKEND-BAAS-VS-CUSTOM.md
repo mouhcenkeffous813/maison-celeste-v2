@@ -3,9 +3,13 @@
 
 > **Rôle :** Architecte Logiciel Senior & Lead Backend / DevOps / Cybersécurité  
 > **Projet :** Maison Céleste (Haute Joaillerie & Prêt-à-Porter • Algérie)  
-> **Code Source Analysé :** [Dépôt mouhcenkeffous813/maison-celeste](https://github.com/mouhcenkeffous813/maison-celeste)  
-> **Date de l'Audit :** 13 Novembre 2026  
-> **Statut :** Analyse Réelle, Objective & Chiffrée (Zéro modification de code)  
+> **Code Source Analysé :** [Dépôt mouhcenkeffous813/maison-celeste-v2](https://github.com/mouhcenkeffous813/maison-celeste-v2)  
+> **Date de l'Audit :** 13-14 Novembre 2026  
+> **Statut :** Architecture Hybride V2 Réalisée et Déployée en Production (Deno Edge Function `create-order`, Supabase Auth JWT, Bot Telegram `@Colisssbot`, Storage WebP Canvas)  
+
+> [!IMPORTANT]
+> **MISE À JOUR V2 (14 NOVEMBRE 2026) :**  
+> Les recommandations de cette étude ont été **intégralement implémentées dans Maison Céleste V2**. La plateforme opère désormais selon l'Option B (Architecture Hybride BaaS + Deno Edge Functions) : validation des prix et décrémentation atomique côté serveur, alertes Telegram instantanées au commerçant (`@Colisssbot`), authentification administrateur Supabase Auth JWT (sans faux PIN client) et compression d'images WebP dans Supabase Storage.  
 
 ---
 
@@ -397,67 +401,19 @@ flowchart TD
 
 ---
 
-# PARTIE 7 — PLAN DE MIGRATION PROGRESSIF EN 9 ÉTAPES SANS INTERRUPTION
+# PARTIE 7 — BILAN DE RÉALISATION EN PRODUCTION (V2 ACCOMPLIE)
 
-Pour faire évoluer votre boutique vers cette architecture de référence sans risquer la moindre coupure de service ni perdre aucune commande :
+L'ensemble des étapes du plan de migration progressif a été **intégralement réalisé et déployé avec succès** dans la version **Maison Céleste V2** :
 
-### Étape 1 : Sécurisation Immédiate de l'Existant (J+0)
-- Exécuter une sauvegarde complète de la table `orders` actuelle vers un fichier CSV ou SQL.
-- Vérifier que toutes les commandes passées sont bien présentes dans Supabase Cloud.
-
-### Étape 2 : Migration des Produits de `localStorage` vers PostgreSQL (J+1)
-- Créer deux nouvelles tables dans Supabase : `public.products` et `public.product_variants`.
-- Exécuter un script SQL d'initialisation insérant les données riches actuelles de [`src/data/mockProducts.ts`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/data/mockProducts.ts).
-- Adapter `api.getProducts()` pour lire directement depuis PostgreSQL avec mise en cache mémoire.
-- **Résultat immédiat :** Tout produit ajouté depuis un PC apparaîtra instantanément sur tous les smartphones des clients.
-
-### Étape 3 : Mise en Place de Supabase Auth pour l'Administrateur (J+2)
-- Activer le module `Auth` dans le tableau de bord Supabase avec votre adresse e-mail administrateur.
-- Remplacer le simple contrôle du PIN local dans [`AdminLogin.tsx`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/components/admin/AdminLogin.tsx) par `supabase.auth.signInWithPassword({ email, password })`.
-- Stocker la session JWT dans un cookie sécurisé ou dans le SDK Supabase.
-
-### Étape 4 : Verrouillage Étanche des Politiques RLS (J+2)
-- Modifier les politiques SQL de la table `orders` :
-  ```sql
-  -- Les visiteurs anonymes ne peuvent QUE créer une commande (INSERT)
-  CREATE POLICY "Public create orders" ON orders FOR INSERT WITH CHECK (true);
-  
-  -- SEUL l'administrateur authentifié peut lire, modifier ou supprimer des commandes
-  CREATE POLICY "Admin full orders access" ON orders FOR ALL
-    TO authenticated
-    USING (true)
-    WITH CHECK (true);
-  ```
-- **Résultat :** Aucun internaute ne pourra plus jamais consulter la liste des commandes ni modifier un statut depuis la console de son navigateur.
-
-### Étape 5 : Déploiement de la Première Edge Function de Commande (`create-order`) (J+3)
-- Écrire une fonction TypeScript de 100 lignes (`supabase/functions/create-order/index.ts`).
-- La fonction reçoit les identifiants des produits et quantités, interroge la table `products` pour récupérer les vrais prix officiels, calcule les frais de livraison de la Wilaya, et insère la commande avec la clé `service_role`.
-- Si le prix transmis par le client ne correspond pas au calcul serveur, la commande est recalculée avec le vrai tarif ou rejetée.
-
-### Étape 6 : Automatisation des Alertes Commerçant (Telegram / WhatsApp) (J+4)
-- Intégrer dans l'Edge Function un appel direct à l'API Telegram :
-  ```typescript
-  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: 'POST',
-    body: JSON.stringify({
-      chat_id: ADMIN_CHAT_ID,
-      text: `🎉 NOUVELLE COMMANDE !\nN° : ${orderNumber}\nClient : ${customerName} (${wilayaName})\nTotal COD : ${grandTotal} DA`
-    })
-  });
-  ```
-- Vous recevez une notification sonore sur votre téléphone personnel à la seconde exacte où un client clique sur commander.
-
-### Étape 7 : Migration des Images vers Supabase Storage (J+5)
-- Créer un bucket public `product-images` dans Supabase Storage avec compression WebP automatique.
-- Remplacer les images Base64 lourdes par des URLs CDN ultra-rapides.
-
-### Étape 8 : Mise en Place du Cron de Sauvegarde Externe Automatisé (J+6)
-- Configurer un workflow GitHub Actions gratuit s'exécutant tous les soirs à minuit pour effectuer un `pg_dump` et l'archiver sur un stockage froid chiffré.
-
-### Étape 9 : Validation Finale & Bascule sans Coupure (J+7)
-- Tester le tunnel complet sur un environnement de staging.
-- Basculer le domaine de production sur Vercel. Les anciennes commandes restent 100% intactes dans Supabase.
+- [x] **Étape 1 : Sauvegarde & Sécurisation de l'Existant** (Terminé).
+- [x] **Étape 2 : Migration Catalogue vers PostgreSQL** (`products` et `product_variants` sur Supabase avec fallback mémoire, Terminé).
+- [x] **Étape 3 : Supabase Auth pour l'Administrateur** (JWT sécurisé `signInWithPassword`, suppression définitive du faux code PIN client, Terminé).
+- [x] **Étape 4 : Verrouillage RLS** (Row Level Security étanche pour `orders`, `products`, `store_config`, Terminé).
+- [x] **Étape 5 : Déploiement Edge Function `create-order`** (Recalcul serveur des totaux, validation Regex DZ `0[567][0-9]{8}`, procédure atomique RPC `decrease_product_stock`, Terminé).
+- [x] **Étape 6 : Alertes Commerçant Instantanées** (Bot Telegram `@Colisssbot` opérationnel avec ID commerçant `682438619`, Terminé).
+- [x] **Étape 7 : Migration Images vers Supabase Storage** (Bucket `product-images`, conversion WebP via Canvas HTML5 client, URLs CDN légères, Terminé).
+- [x] **Étape 8 : Cron de Sauvegarde Externe Automatisé** (Workflow `.github/workflows/database-backup.yml`, Terminé).
+- [x] **Étape 9 : Validation & Déploiement Vercel** (Boutique en ligne sur `https://maison-celeste-v2.vercel.app`, Terminé).
 
 ---
 

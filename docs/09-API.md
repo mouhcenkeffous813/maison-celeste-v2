@@ -1,105 +1,105 @@
-# 09 — Référence de l'API de Service (`api.ts`)
+# 09 — Spécifications des APIs et Services (Maison Céleste V2)
 
-Ce document décrit le contrat d'API complet exposé par le module [`src/services/api.ts`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/services/api.ts). Chaque méthode est asynchrone, retourne une `Promise`, et gère automatiquement la persistance des données.
+Ce document décrit l'ensemble des points d'accès API utilisés dans **Maison Céleste V2**, leurs formats de requêtes et réponses, ainsi que les protocoles de communication.
 
 ---
 
-## 1. Méthodes relatives aux Produits (`Products`)
+## 1. Vue d'Ensemble des Points d'Accès
 
-### `api.getProducts(): Promise<Product[]>`
-- **Description :** Récupère la liste intégrale des produits actifs et inactifs.
-- **Retour :** Tableau d'objets `Product`.
-- **Exemple :**
-  ```ts
-  const catalog = await api.getProducts();
-  const activeItems = catalog.filter(p => p.isActive);
+| Service | Protocole | Endpoint / URL | Rôle |
+| :--- | :--- | :--- | :--- |
+| **Edge Function Commande** | HTTPS POST | `/functions/v1/create-order` | Validation stricte, calcul prix, stock et Telegram |
+| **API REST Produits** | HTTPS GET | `/rest/v1/products?select=*,product_variants(*)` | Chargement du catalogue et des variantes |
+| **API REST Commandes** | HTTPS GET/POST/PATCH/DELETE | `/rest/v1/orders` | Gestion CRM des commandes (PostgREST) |
+| **API RPC Stock** | HTTPS POST | `/rest/v1/rpc/decrease_product_stock` | Décrémentation atomique de stock |
+| **Supabase Storage** | HTTPS POST/GET | `/storage/v1/object/public/product-images/...` | Téléversement et distribution d'images WebP |
+| **Supabase Auth** | HTTPS POST | `/auth/v1/token?grant_type=password` | Authentification JWT Administrateur |
+| **Telegram Bot API** | HTTPS POST/GET | `https://api.telegram.org/bot<TOKEN>/...` | Notifications push et détection de Chat ID |
+
+---
+
+## 2. L'Edge Function `create-order`
+
+* **Méthode :** `POST`
+* **URL :** `https://omzqajugkhkjxlkfmxpo.supabase.co/functions/v1/create-order`
+* **En-têtes :**
+  ```http
+  Content-Type: application/json
+  apikey: <SUPABASE_ANON_KEY>
+  Authorization: Bearer <SUPABASE_ANON_KEY>
+  ```
+* **Corps de la Requête (JSON) :**
+  ```json
+  {
+    "customerName": "Nawel Boudiaf",
+    "customerPhone": "0552334411",
+    "wilayaId": 16,
+    "wilayaName": "Alger",
+    "commune": "Sidi Yahia",
+    "address": "Boulevard Principal",
+    "deliveryType": "home",
+    "productId": "prod-002",
+    "productTitle": "Collier pendentif rond",
+    "productImage": "https://images.unsplash.com/...",
+    "selectedColor": "Doré",
+    "selectedSize": "Standard",
+    "quantity": 1,
+    "notes": "Appeler avant la livraison"
+  }
+  ```
+* **Réponse de Succès (`200 OK`) :**
+  ```json
+  {
+    "success": true,
+    "order": {
+      "id": "ord-1731580000-abcde",
+      "orderNumber": "CMD-DZ-4821",
+      "customerName": "Nawel Boudiaf",
+      "customerPhone": "0552334411",
+      "wilayaId": 16,
+      "wilayaName": "Alger",
+      "commune": "Sidi Yahia",
+      "address": "Boulevard Principal",
+      "deliveryType": "home",
+      "unitPrice": 4500,
+      "productTotal": 4500,
+      "shippingFee": 400,
+      "grandTotal": 4900,
+      "status": "pending",
+      "createdAt": "2026-11-14T11:00:00.000Z"
+    }
+  }
   ```
 
-### `api.getProductById(id: string): Promise<Product | null>`
-- **Description :** Recherche un produit selon son identifiant unique.
-- **Paramètres :** `id` (ex: `"prod-001"`).
-- **Retour :** L'objet `Product` trouvé ou `null`.
+---
 
-### `api.createProduct(data: Omit<Product, 'id' | 'createdAt'>): Promise<Product>`
-- **Description :** Crée un nouvel article avec génération automatique de l'identifiant `prod-<timestamp>` et de la date du jour.
-- **Effet de bord :** Enregistre le produit en tête de liste et notifie l'application via `elissia_store_update`.
+## 3. L'API Telegram Bot (`@Colisssbot`)
 
-### `api.updateProduct(id: string, updates: Partial<Product>): Promise<Product>`
-- **Description :** Met à jour partiellement les champs d'un produit existant.
-- **Erreurs :** Lève une exception `Error("Product {id} not found")` si l'identifiant est introuvable.
+### 3.1 Envoi d'Alerte de Commande (`sendMessage`)
+* **Endpoint :** `POST https://api.telegram.org/bot9023085999:AAGBO6w0C0jb7w4oiy2j6wqwk782J34mACs/sendMessage`
+* **Corps (JSON) :**
+  ```json
+  {
+    "chat_id": "682438619",
+    "text": "🛍️ *NOUVELLE COMMANDE REÇUE !*\n📦 *N° :* `CMD-DZ-4821`\n👤 *Client :* Nawel Boudiaf (0552334411)\n📍 *Destination :* Alger (Sidi Yahia)\n💰 *Total COD :* *4 900 DA*",
+    "parse_mode": "Markdown",
+    "disable_web_page_preview": true
+  }
+  ```
 
-### `api.deleteProduct(id: string): Promise<boolean>`
-- **Description :** Supprime définitivement un produit du catalogue.
+### 3.2 Détection Automatique du Chat ID (`getUpdates`)
+* **Endpoint :** `GET https://api.telegram.org/bot9023085999:AAGBO6w0C0jb7w4oiy2j6wqwk782J34mACs/getUpdates`
+* **Rôle :** Lit les derniers messages reçus par `@Colisssbot` pour extraire automatiquement le Chat ID de l'administrateur lorsqu'il clique sur *« Détecter auto »* dans le Dashboard.
 
 ---
 
-## 2. Méthodes relatives aux Catégories (`Categories`)
+## 4. API Supabase Storage (Upload WebP)
 
-### `api.getCategories(): Promise<string[]>`
-- **Description :** Retourne la liste ordonnée des catégories de la boutique.
-
-### `api.addCategory(name: string): Promise<string[]>`
-- **Description :** Ajoute une nouvelle catégorie si elle n'existe pas déjà (ignorant les espaces superflus).
-
-### `api.deleteCategory(name: string): Promise<string[]>`
-- **Description :** Supprime une catégorie et **réassigne automatiquement** tous les produits qui lui appartenaient vers la première catégorie disponible restante (ou `"Général"`).
-- **Sécurité :** Empêche l'existence de produits orphelins.
-
----
-
-## 3. Méthodes relatives aux Commandes (`Orders`)
-
-### `api.getOrders(): Promise<Order[]>`
-- **Description :** Récupère l'ensemble des commandes passées, avec déduplication automatique en mémoire.
-
-### `api.getOrderById(id: string): Promise<Order | null>`
-- **Description :** Recherche une commande par son identifiant interne (`ord-XXX`).
-
-### `api.getOrdersByPhone(phone: string): Promise<Order[]>`
-- **Description :** Utilisé par la page de suivi client ([`OrderTracking.tsx`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/components/storefront/OrderTracking.tsx)). Filtre les commandes dont le numéro de téléphone concorde (espaces ignorés).
-
-### `api.createOrder(data): Promise<Order>`
-- **Description :** Enregistre une nouvelle commande COD.
-- **Logique interne :**
-  1. Génère un numéro de commande algérien unique : `CMD-DZ-XXXX`.
-  2. Génère un identifiant unique horodaté : `ord-<timestamp>-<hash>`.
-  3. Recherche le produit commandé et **décrémente automatiquement le stock** de la variante correspondante (taille + couleur).
-  4. Recalcule le `totalStock` du produit et persiste la mise à jour.
-  5. Émet l'événement `elissia_store_update`.
-
-### `api.updateOrderStatus(orderId: string, status: OrderStatus, notes?: string): Promise<Order>`
-- **Description :** Met à jour le statut logistique d'une commande (*pending*, *confirmed*, *processing*, *shipped*, *delivered*, *cancelled*) et consigne d'éventuelles notes internes de suivi.
-
-### `api.deleteOrder(orderId: string): Promise<boolean>`
-- **Description :** Supprime une commande (réservé au gérant pour le nettoyage de tests).
-
----
-
-## 4. Méthodes relatives aux Wilayas & Tarifs (`Wilayas`)
-
-### `api.getWilayas(): Promise<Wilaya[]>`
-- **Description :** Retourne les informations complètes des **58 Wilayas d'Algérie** (nom en français, nom en arabe, frais de livraison à domicile, frais en bureau Stop Desk, état d'activation et liste des communes).
-
-### `api.updateWilaya(id: number, updates: Partial<Wilaya>): Promise<Wilaya>`
-- **Description :** Permet au gérant de modifier les tarifs de livraison ou d'activer/désactiver la livraison pour une Wilaya donnée.
-
----
-
-## 5. Méthodes relatives aux Paramètres de la Boutique (`StoreConfig`)
-
-### `api.getStoreConfig(): Promise<StoreConfig>`
-- **Description :** Récupère la configuration générale de la boutique (nom, devise, téléphone, WhatsApp, pixels marketing, code PIN et thème actif) et applique automatiquement les variables CSS sur le document.
-
-### `api.updateStoreConfig(updates: Partial<StoreConfig>): Promise<StoreConfig>`
-- **Description :** Enregistre les modifications de configuration et réapplique les variables de thème si la charte graphique a été modifiée.
-
----
-
-## 6. Méthodes relatives aux Avis Clients (`Reviews`)
-
-### `api.getReviews(productId?: string): Promise<Review[]>`
-- **Description :** Retourne les avis clients, filtrables par produit.
-
-### `api.addReview(data): Promise<Review>`
-- **Description :** Ajoute un avis client vérifié, date l'avis en français et **recalcule automatiquement la note moyenne (`rating`) et le nombre total d'avis (`reviewCount`)** de la fiche produit concernée.
-
+* **Endpoint :** `POST /storage/v1/object/product-images/products/<fileName>.webp`
+* **En-têtes :**
+  ```http
+  Content-Type: image/webp
+  Authorization: Bearer <ADMIN_JWT_TOKEN>
+  ```
+* **Format de l'URL publique résultante :**
+  `https://omzqajugkhkjxlkfmxpo.supabase.co/storage/v1/object/public/product-images/products/collier-luxe-1731580000.webp`

@@ -1,206 +1,237 @@
-# 08 — Modèles de Données et Schémas
+# 08 — Base de Données PostgreSQL & Schéma V2 (Maison Céleste)
 
-Ce document détaille l'intégralité des entités de données du projet **Maison Céleste**, leurs types TypeScript, leurs contraintes de validation et les relations logiques existant entre elles.
+Ce document détaille l'intégralité du schéma relationnel de **Maison Céleste V2**, les tables PostgreSQL, les contraintes, les procédures stockées (RPC) et les politiques de sécurité Row Level Security (RLS).
 
 ---
 
-## 1. Schéma Entité-Relation Conceptuel (ERD)
+## 1. Schéma Entité-Relation Conceptuel V2 (ERD)
 
 ```mermaid
 erDiagram
-    PRODUCT ||--o{ PRODUCT_VARIANT : "contient"
-    PRODUCT ||--o{ REVIEW : "reçoit"
+    PRODUCT ||--o{ PRODUCT_VARIANT : "possède des"
     PRODUCT ||--o{ ORDER : "est commandé dans"
-    WILAYA ||--o{ ORDER : "définit la livraison de"
+    WILAYA ||--o{ ORDER : "détermine les frais de"
+    STORE_CONFIG ||--|| MARKETING_INTEGRATIONS : "configure"
 
     PRODUCT {
-        string id PK
-        string title
-        string slug UK
-        string category
-        string shortDescription
-        string description
-        string[] bulletPoints
-        number price
-        number compareAtPrice
-        string[] images
-        ProductColor[] colors
-        string[] sizes
-        number totalStock
-        number rating
-        number reviewCount
-        boolean isFeatured
-        boolean isActive
-        string badge
-        string createdAt
+        text id PK
+        text title
+        text subtitle
+        text description
+        numeric price
+        numeric compare_at_price
+        text category
+        text[] images
+        numeric rating
+        integer review_count
+        boolean is_featured
+        boolean is_active
+        integer stock
+        timestamp created_at
+        timestamp updated_at
     }
 
     PRODUCT_VARIANT {
-        string id PK
-        string colorName
-        string colorHex
-        string size
-        number stock
+        text id PK
+        text product_id FK
+        text color_name
+        text color_hex
+        text size
+        integer stock
+        text sku
+        text image
     }
 
     ORDER {
-        string id PK
-        string orderNumber UK
-        string customerName
-        string customerPhone
-        number wilayaId FK
-        string wilayaName
-        string commune
-        string address
-        string deliveryType
-        string productId FK
-        string productTitle
-        string productImage
-        string selectedColor
-        string selectedSize
-        number quantity
-        number unitPrice
-        number productTotal
-        number shippingFee
-        number grandTotal
-        string status
-        string trackingCode
-        string notes
-        string createdAt
-        string updatedAt
+        text id PK
+        text order_number UK
+        text customer_name
+        text customer_phone
+        integer wilaya_id
+        text wilaya_name
+        text commune
+        text address
+        text delivery_type
+        text product_id
+        text product_title
+        text product_image
+        text selected_color
+        text selected_size
+        integer quantity
+        numeric unit_price
+        numeric product_total
+        numeric shipping_fee
+        numeric grand_total
+        text status
+        text tracking_code
+        text notes
+        timestamp created_at
+        timestamp updated_at
     }
 
     WILAYA {
-        number id PK
-        string code UK
-        string name
-        string arName
-        number homeFee
-        number deskFee
-        boolean isDeliverable
-        string[] communes
+        integer id PK
+        text code
+        text name
+        text ar_name
+        jsonb communes
+        numeric home_delivery_price
+        numeric stop_desk_price
+        boolean is_deliverable
     }
 
-    REVIEW {
-        string id PK
-        string productId FK
-        string author
-        string wilaya
-        number rating
-        string comment
-        string date
-        boolean verifiedPurchase
+    STORE_CONFIG {
+        integer id PK
+        text store_name
+        text store_tagline
+        text logo_url
+        text currency
+        text phone
+        text whatsapp_number
+        numeric free_shipping_threshold
+        jsonb theme
+        text meta_pixel_id
+        text tiktok_pixel_id
+        text delivery_time_estimate
+        text announcement_text
     }
 ```
 
 ---
 
-## 2. Définitions TypeScript Exactes ([`src/types/index.ts`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/types/index.ts))
+## 2. Définition des Tables PostgreSQL V2
 
-### 2.1 Entité Produit (`Product`)
-```ts
-export interface ProductColor {
-  name: string;      // Nom lisible (ex: "Doré Or 18k", "Noir Ébène")
-  hex: string;       // Code couleur hexadécimal (ex: "#D4AF37")
-  imageIndex?: number; // Index de l'image de la galerie associée
-}
+### 2.1 Table des Commandes (`public.orders`)
+```sql
+CREATE TABLE IF NOT EXISTS public.orders (
+  id TEXT PRIMARY KEY,
+  order_number TEXT UNIQUE NOT NULL,
+  customer_name TEXT NOT NULL,
+  customer_phone TEXT NOT NULL,
+  wilaya_id INTEGER NOT NULL,
+  wilaya_name TEXT NOT NULL,
+  commune TEXT NOT NULL,
+  address TEXT NOT NULL,
+  delivery_type TEXT NOT NULL DEFAULT 'home', -- 'home' ou 'desk'
+  product_id TEXT NOT NULL,
+  product_title TEXT NOT NULL,
+  product_image TEXT NOT NULL,
+  selected_color TEXT,
+  selected_size TEXT,
+  quantity INTEGER NOT NULL DEFAULT 1,
+  unit_price NUMERIC NOT NULL,
+  product_total NUMERIC NOT NULL,
+  shipping_fee NUMERIC NOT NULL DEFAULT 0,
+  grand_total NUMERIC NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled'
+  tracking_code TEXT,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+);
 
-export interface ProductVariant {
-  id: string;        // Identifiant de la variante (ex: "v1-1")
-  colorName: string; // Nom de la couleur
-  colorHex: string;  // Hex de la couleur
-  size: string;      // Taille ou pointure (ex: "Standard", "M (38-40)")
-  stock: number;     // Quantité en stock disponible pour cette variante
-}
-
-export interface Product {
-  id: string;
-  title: string;
-  slug: string;
-  category: string;
-  shortDescription: string;
-  description: string;
-  bulletPoints?: string[];
-  price: number;
-  compareAtPrice: number;
-  images: string[];
-  colors: ProductColor[];
-  sizes: string[];
-  variants: ProductVariant[];
-  totalStock: number;
-  rating: number;
-  reviewCount: number;
-  isFeatured: boolean;
-  isActive: boolean;
-  badge?: string;
-  createdAt: string;
-}
+-- Index pour requêtes ultra-rapides
+CREATE INDEX IF NOT EXISTS idx_orders_phone ON public.orders (customer_phone);
+CREATE INDEX IF NOT EXISTS idx_orders_wilaya ON public.orders (wilaya_id);
+CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders (status);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at ON public.orders (created_at DESC);
 ```
 
-### 2.2 Entité Commande (`Order`)
-```ts
-export type OrderStatus =
-  | 'pending'     // En attente de confirmation téléphonique
-  | 'confirmed'   // Confirmée par le client
-  | 'processing'  // En cours de préparation au dépôt
-  | 'shipped'     // Remise au transporteur (Yalidine, ZR Express, etc.)
-  | 'delivered'   // Livrée au client et argent liquide encaissé
-  | 'cancelled';  // Annulée ou refusée à la livraison
+### 2.2 Tables du Catalogue (`public.products` et `public.product_variants`)
+```sql
+CREATE TABLE IF NOT EXISTS public.products (
+  id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  subtitle TEXT,
+  description TEXT,
+  price NUMERIC NOT NULL,
+  compare_at_price NUMERIC,
+  category TEXT NOT NULL,
+  images TEXT[] DEFAULT '{}',
+  rating NUMERIC DEFAULT 5.0,
+  review_count INTEGER DEFAULT 0,
+  is_featured BOOLEAN DEFAULT false,
+  is_active BOOLEAN DEFAULT true,
+  stock INTEGER DEFAULT 0,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
+);
 
-export interface Order {
-  id: string;
-  orderNumber: string;         // Format officiel : "CMD-DZ-XXXX"
-  customerName: string;        // Nom et prénom du destinataire
-  customerPhone: string;       // Téléphone mobile algérien (05/06/07)
-  wilayaId: number;            // Numéro de la Wilaya (1 à 58)
-  wilayaName: string;          // Nom de la Wilaya (ex: "Alger", "Oran", "Sétif")
-  commune: string;             // Nom de la commune
-  address: string;             // Adresse ou point de repère précis
-  deliveryType: 'home' | 'desk'; // À domicile ou Bureau Stop-desk
-  productId: string;           // Identifiant du produit commandé
-  productTitle: string;        // Titre du produit figé au moment de la commande
-  productImage: string;        // Photo du produit figée
-  selectedColor: string;       // Couleur choisie
-  selectedSize: string;        // Taille choisie
-  quantity: number;            // Nombre d'exemplaires (min: 1)
-  unitPrice: number;           // Prix unitaire en DA
-  productTotal: number;        // Sous-total produits en DA
-  shippingFee: number;         // Frais de livraison calculés en DA
-  grandTotal: number;          // Montant total à payer en espèces (COD)
-  status: OrderStatus;         // Statut dans le pipeline de traitement
-  trackingCode?: string;       // Numéro de suivi transporteur externe
-  notes?: string;              // Remarques internes ou créneau d'appel
-  createdAt: string;           // Timestamp ISO 8601
-  updatedAt: string;           // Timestamp ISO 8601
-}
-```
+CREATE TABLE IF NOT EXISTS public.product_variants (
+  id TEXT PRIMARY KEY,
+  product_id TEXT NOT NULL REFERENCES public.products(id) ON DELETE CASCADE,
+  color_name TEXT,
+  color_hex TEXT,
+  size TEXT,
+  stock INTEGER NOT NULL DEFAULT 0,
+  sku TEXT,
+  image TEXT
+);
 
-### 2.3 Entité Wilaya (`Wilaya`)
-```ts
-export interface Wilaya {
-  id: number;                  // 1 à 58
-  code: string;                // "01" à "58"
-  name: string;                // Nom en alphabet latin
-  arName: string;              // Nom en arabe
-  homeFee: number;             // Tarif livraison à domicile en DA (ex: 500)
-  deskFee: number;             // Tarif retrait bureau en DA (ex: 350)
-  isDeliverable: boolean;      // Disponibilité du service
-  communes: string[];          // Liste des communes de la Wilaya
-}
+CREATE INDEX IF NOT EXISTS idx_variants_product_id ON public.product_variants (product_id);
 ```
 
 ---
 
-## 3. Clés de Stockage Local ([`src/services/api.ts`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/services/api.ts))
+## 3. Procédure Stockée RPC `decrease_product_stock`
 
-Pour garantir l'intégrité des données sans interférence entre différentes versions de l'application, les clés de `localStorage` sont versionnées :
+Cette fonction SQL garantit l'atomicité et l'isolation transactionnelle des baisses de stock (évite le sur-vendu) :
 
-| Clé de Stockage | Description | Données par Défaut |
-| :--- | :--- | :--- |
-| `celeste_products_v11` | Catalogue complet des articles et stocks | 12 articles réels dans [`mockProducts.ts`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/data/mockProducts.ts) |
-| `celeste_orders_v10` | Historique des commandes passées | 5 commandes de démonstration dans [`mockOrders.ts`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/data/mockOrders.ts) |
-| `orlea_wilayas_v7` | Grille des 58 Wilayas et tarifs personnalisés | 58 Wilayas dans [`wilayas.json`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/config/wilayas.json) |
-| `celeste_categories_v10` | Liste dynamique des catégories gérées | 6 catégories officielles |
-| `celeste_config_v10` | Paramètres généraux, téléphone, thème CSS | Configuration dans [`store.config.ts`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/config/store.config.ts) |
-| `celeste_reviews_v10` | Avis et témoignages clients géolocalisés | Avis dans [`mockReviews.ts`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/data/mockReviews.ts) |
+```sql
+CREATE OR REPLACE FUNCTION public.decrease_product_stock(
+  p_product_id TEXT,
+  p_variant_id TEXT,
+  p_quantity INT
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_current_stock INT;
+BEGIN
+  -- Verrouillage exclusif de la ligne pour la transaction courante
+  SELECT stock INTO v_current_stock
+  FROM public.product_variants
+  WHERE id = p_variant_id AND product_id = p_product_id
+  FOR UPDATE;
 
+  IF v_current_stock IS NULL THEN
+    RAISE EXCEPTION 'Variante non trouvée';
+  END IF;
+
+  IF v_current_stock < p_quantity THEN
+    RAISE EXCEPTION 'Stock insuffisant (disponible: %, demandé: %)', v_current_stock, p_quantity;
+  END IF;
+
+  -- Décrémentation de la variante
+  UPDATE public.product_variants
+  SET stock = stock - p_quantity
+  WHERE id = p_variant_id;
+
+  -- Décrémentation du total produit
+  UPDATE public.products
+  SET stock = GREATEST(0, stock - p_quantity),
+      updated_at = NOW()
+  WHERE id = p_product_id;
+
+  RETURN jsonb_build_object('success', true, 'remaining_stock', v_current_stock - p_quantity);
+END;
+$$;
+```
+
+---
+
+## 4. Politiques de Sécurité Row Level Security (RLS) V2
+
+La sécurité de la base est assurée par des règles RLS déclaratives :
+
+1. **Table `orders` :**
+   * `INSERT` : Autorisé pour tous (`anon` et `authenticated`) afin que n'importe quel visiteur puisse passer commande.
+   * `SELECT`, `UPDATE`, `DELETE` : Réservés à l'administrateur authentifié (`TO authenticated`), empêchant les clients de voir les commandes des autres.
+2. **Table `products` & `product_variants` :**
+   * `SELECT` : Public (`anon`) pour permettre la navigation dans la boutique.
+   * `INSERT`, `UPDATE`, `DELETE` : Strictement restreints au rôle `authenticated` (gérant connecté).
+3. **Table `store_config` :**
+   * `SELECT` : Public (affichage du logo, nom et couleurs).
+   * `UPDATE` : Strictement réservé au rôle `authenticated`.

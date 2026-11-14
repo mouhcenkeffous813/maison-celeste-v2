@@ -1,68 +1,64 @@
-# 10 — Sécurité, Protection des Données et Audit
+# 10 — Sécurité & Protection des Données (Maison Céleste V2)
 
-Ce document présente l'audit de sécurité de l'application **Maison Céleste**, les protections mises en œuvre pour l'exploitation en production et les recommandations pour le e-commerce COD en Algérie.
-
----
-
-## 1. Authentification et Contrôle d'Accès Administrateur
-
-### 1.1 Verrouillage par Code PIN
-- L'accès au tableau de bord gérant ([`AdminLogin.tsx`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/components/admin/AdminLogin.tsx)) est protégé par un code PIN configurable à 4 chiffres (défaut : `1234`).
-- La saisie est masquée avec des pastilles discrètes pour empêcher l'espionnage d'écran (*shoulder surfing*).
-- Une temporisation de 500 ms est imposée après un échec pour décourager les tentatives de force brute.
-
-### 1.2 Durée de Vie de la Session (`sessionStorage`)
-- Lors d'une connexion réussie, le jeton d'autorisation est enregistré dans le stockage de session du navigateur :
-  ```ts
-  sessionStorage.setItem('elissia_admin_auth', 'true');
-  ```
-- **Avantage de sécurité :** Contrairement à un cookie persistant ou à `localStorage`, `sessionStorage` est automatiquement détruit dès que le gérant ferme son onglet ou son navigateur. Un appareil partagé (cybercafé, smartphone familial) ne conserve aucun accès actif.
+Ce document décrit l'ensemble des mesures de cybersécurité mises en œuvre dans **Maison Céleste V2** pour protéger les données commerciales, l'intégrité financière des commandes et la confidentialité des clients.
 
 ---
 
-## 2. Validation des Données et Protection des Formulaires
+## 1. Principes Fondamentaux de Sécurité V2
 
-### 2.1 Validation Stricte des Numéros de Téléphone Algériens
-La fonction utilitaire [`validateAlgerianPhone`](file:///c:/Users/Mohcen/Desktop/e-commerce/src/utils/formatters.ts) valide rigoureusement les numéros saisis :
-```ts
-export function validateAlgerianPhone(phone: string): boolean {
-  // Accepte: 05XXXXXXXX, 06XXXXXXXX, 07XXXXXXXX, +2135XXXXXXXX, +2136XXXXXXXX, +2137XXXXXXXX
-  const cleaned = phone.replace(/[\s\-\.\(\)]/g, '');
-  const dzMobileRegex = /^(?:(?:\+|00)213|0)[567]\d{8}$/;
-  return dzMobileRegex.test(cleaned);
-}
+1. **Défense en Profondeur :** La sécurité ne repose jamais sur le seul navigateur. Chaque action critique (prix, stocks, accès administrateur) est validée de manière autoritaire côté serveur.
+2. **Moindre Privilège (Least Privilege) :** Les clés publiques exposées dans le frontend (`anon`) ne possèdent que les droits strictement nécessaires (insérer une commande, lire le catalogue public). Les opérations destructives ou sensibles requièrent un jeton JWT administrateur authentifié.
+3. **Zéro Donnée Bancaire (PCI-DSS Out of Scope) :** En adoptant le modèle **Cash on Delivery (Paiement en espèces à la livraison)**, la boutique ne manipule ni ne stocke aucun numéro de carte bancaire, supprimant tout risque de fuite de données bancaires.
+
+---
+
+## 2. Résolution des Failles de la Version 1
+
+| Risque Identifié en V1 | Statut V2 | Solution Technique Implémentée |
+| :--- | :---: | :--- |
+| **Manipulation des prix dans le navigateur** | 🟢 **SÉCURISÉ** | L'Edge Function serverless `create-order` recalcule obligatoirement les prix unitaires et frais de port depuis la base de données. |
+| **Contournement de l'accès Admin par PIN** | 🟢 **SÉCURISÉ** | Remplacé par **Supabase Auth (GoTrue)** avec chiffrement bcrypt et jetons signés JWT. Tout code PIN a été banni. |
+| **Inscription libre d'inconnus en tant qu'admin** | 🟢 **SÉCURISÉ** | Aucun onglet ni formulaire d'inscription n'est exposé sur le site. Les comptes admin sont créés en privé dans la console Supabase. |
+| **Bouton Dashboard exposé aux visiteurs** | 🟢 **SÉCURISÉ** | Le bouton Dashboard est 100 % invisible dans le header et le menu mobile pour les clients ordinaires. |
+| **Risque de sur-vendu lors de pics de trafic** | 🟢 **SÉCURISÉ** | Fonction stockée PostgreSQL `decrease_product_stock` avec verrouillage atomique de ligne (`SELECT FOR UPDATE`). |
+| **Lecture des commandes clients par des tiers** | 🟢 **SÉCURISÉ** | Politiques RLS strictes : `SELECT` sur la table `orders` réservé au rôle `authenticated`. |
+
+---
+
+## 3. Politiques Row Level Security (RLS) PostgreSQL
+
+La sécurité au niveau des lignes est activée sur toutes les tables :
+
+```sql
+-- 1. Table ORDERS : N'importe qui peut commander, seul l'admin peut lire/modifier
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public insert orders" ON public.orders
+  FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Admin select orders" ON public.orders
+  FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "Admin update orders" ON public.orders
+  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "Admin delete orders" ON public.orders
+  FOR DELETE TO authenticated USING (true);
+
+-- 2. Table PRODUCTS : Lecture publique, modification admin
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public select products" ON public.products
+  FOR SELECT USING (true);
+
+CREATE POLICY "Admin write products" ON public.products
+  FOR ALL TO authenticated USING (true) WITH CHECK (true);
 ```
-Si le numéro n'appartient pas aux préfixes d'opérateurs mobiles algériens valides (Mobilis `06`, Djezzy `07`, Ooredoo `05`), le formulaire bloque la soumission et affiche une alerte contextuelle claire.
-
-### 2.2 Verrouillage Anti-Doublon (*Debounce Submission Lock*)
-Pour éviter qu'un acheteur stressé ou victime d'un ralentissement de connexion ne clique plusieurs fois sur `COMMANDER` :
-1. Un état `isSubmitting` désactive immédiatement le bouton et affiche un indicateur de chargement.
-2. Un verrou par référence mutable (`isSubmittingRef.current = true`) court-circuite tout événement concurrent.
-3. Le générateur de commandes vérifie et élimine les collisions d'identifiants avant enregistrement.
 
 ---
 
-## 3. Confidentialité des Informations et Audit des Secrets
+## 4. Sécurité des Médias & Upload WebP
 
-### 3.1 Aucun Secret dans le Code Source Public
-- **Audit de conformité :** Le code ne contient aucun mot de passe de base de données, aucune clé privée Stripe/PayPal, ni aucun jeton secret AWS.
-- Les seules variables exposées sont des préfixes publics `VITE_` (identifiants de pixels publicitaires et nom du magasin), conformément aux règles de sécurité Vite.
-- Le fichier [`.gitignore`](file:///c:/Users/Mohcen/Desktop/e-commerce/.gitignore) a été créé pour exclure formellement tout fichier `.env` ou `.env.local` du dépôt Git.
-
-### 3.2 Fichier `.env.example`
-Un modèle propre sans données sensibles ([`.env.example`](file:///c:/Users/Mohcen/Desktop/e-commerce/.env.example)) est fourni pour guider la configuration de production.
-
----
-
-## 4. Mesures Anti-Fraude adaptées au Cash on Delivery (Algérie)
-
-Le modèle COD présente un risque inhérent de commandes fantômes ou de refus à la livraison. Le système intègre 3 mécanismes pour limiter ce taux de retour (*taux de déchet*) :
-
-1. **Confirmation Téléphonique / WhatsApp en 1 Clic :**
-   - Dès la validation, le client est invité à confirmer sa commande via un lien WhatsApp pré-rempli avec son numéro de commande et le montant exact.
-   - Le gérant peut contacter immédiatement les clients dont les commandes restent au statut `pending` avant toute expédition physique.
-2. **Consultation de l'Historique par Téléphone :**
-   - Le commerçant peut repérer dans le tableau de bord les numéros de téléphone ayant cumulé des commandes annulées ou suspectes.
-3. **Calcul Transparent des Frais de Port :**
-   - L'affichage clair et contractuel du coût total (prix du bijou + frais d'envoi vers la Wilaya sélectionnée) élimine les mauvaises surprises pour le client au moment de payer le livreur en espèces.
-
+1. **Désinfection des Noms de Fichiers :** Avant tout envoi, le nom de l'image est nettoyé pour ne contenir que des caractères alphanumériques minuscules et des tirets, neutralisant les risques de *Path Traversal*.
+2. **Re-génération par Canvas HTML5 :** L'image originale n'est jamais envoyée brute. Elle est décodée puis re-dessinée dans un Canvas en mémoire qui génère un nouveau fichier WebP propre, éliminant tout script malveillant ou métadonnée cachée (stripping EXIF).
+3. **Bucket Supabase Storage Protégé :** Le bucket `product-images` n'autorise l'écriture (`INSERT`/`UPDATE`) qu'aux requêtes munies d'un jeton JWT administrateur valide.
