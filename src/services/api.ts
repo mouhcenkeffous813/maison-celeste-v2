@@ -482,8 +482,10 @@ export const api = {
           const confirmed = edgeData.order;
           const currentOrders = await this.getOrders();
           saveToStorage(STORAGE_KEYS.ORDERS, [confirmed, ...currentOrders.filter(o => o.id !== confirmed.id)]);
-          // Notification instantanée Telegram détaillée
-          telegramService.sendNewOrderNotification(confirmed).catch(e => console.warn('[Telegram] Erreur notification:', e));
+          // Notification instantanée Telegram : uniquement si l'Edge Function ne l'a pas déjà envoyée (anti-doublon)
+          if (!edgeData.telegramSent) {
+            telegramService.sendNewOrderNotification(confirmed).catch(e => console.warn('[Telegram] Erreur notification:', e));
+          }
           return confirmed;
         }
       } catch (edgeInvokeErr) {

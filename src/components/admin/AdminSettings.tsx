@@ -119,17 +119,18 @@ export const AdminSettings: React.FC = () => {
     try {
       const chats = await telegramService.fetchRecentChatIds(telegramToken);
       if (chats.length > 0) {
-        const primaryChat = chats[0];
-        setTelegramChatId(String(primaryChat.id));
-        telegramService.saveConfig(telegramToken, String(primaryChat.id));
-        showToast(`Chat ID détecté avec succès : ${primaryChat.name} (${primaryChat.id})`, 'success');
+        // Priorité absolue aux supergroupes / groupes (notamment "Siteweb")
+        const groupChat = chats.find(c => c.name.toLowerCase().includes('siteweb') || c.type === 'supergroup' || c.type === 'group') || chats[0];
+        setTelegramChatId(String(groupChat.id));
+        telegramService.saveConfig(telegramToken, String(groupChat.id));
+        showToast(`Chat ID détecté : ${groupChat.name} (${groupChat.id}) [${groupChat.type}]`, 'success');
       } else {
         showToast(
-          'Aucun message récent. Ouvrez @Colisssbot sur Telegram, cliquez sur "Démarrer" puis réessayez !',
+          'Aucun message récent détecté. Ajoutez @Colisssbot au groupe Siteweb, écrivez un message puis réessayez !',
           'info'
         );
       }
-    } catch (e) {
+    } catch {
       showToast('Erreur lors de la détection du Chat ID', 'error');
     } finally {
       setIsDetectingChatId(false);
@@ -579,7 +580,7 @@ export const AdminSettings: React.FC = () => {
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <label className="block text-xs font-bold text-stone-700 uppercase tracking-wider">
-                      Votre Chat ID Telegram
+                      Chat ID Telegram (Groupe ou Privé)
                     </label>
                     <button
                       type="button"
@@ -593,13 +594,13 @@ export const AdminSettings: React.FC = () => {
                   </div>
                   <input
                     type="text"
-                    placeholder="ex: 123456789"
+                    placeholder="ex: -1004337566144"
                     value={telegramChatId}
                     onChange={e => setTelegramChatId(e.target.value)}
                     className="w-full px-3.5 py-2.5 text-xs sm:text-sm bg-white rounded-xl border border-stone-200 focus:outline-none focus:border-sky-500 font-mono font-bold"
                   />
                   <p className="text-[11px] text-stone-500 mt-1">
-                    Pour l'obtenir : ouvrez Telegram, cherchez <strong>@Colisssbot</strong>, cliquez sur <strong>Démarrer</strong> (ou envoyez /start), puis cliquez sur <em>Détecter auto</em>.
+                    Identifiant du groupe <strong>Siteweb</strong> : <code className="bg-stone-100 px-1 py-0.5 rounded text-sky-700 font-mono">-1004337566144</code>. Cliquez sur <em>Tester le Bot</em> pour valider l'envoi.
                   </p>
                 </div>
               </div>

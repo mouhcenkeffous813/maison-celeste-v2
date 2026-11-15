@@ -224,38 +224,128 @@ serve(async (req) => {
       throw insertError;
     }
 
-    // 9. NOTIFICATION TELEGRAM INSTANTANÉE AU COMMERÇANT
-    const telegramBotToken = Deno.env.get('TELEGRAM_BOT_TOKEN') || '9023085999:AAGBO6w0C0jb7w4oiy2j6wqwk782J34mACs';
-    const telegramChatId = Deno.env.get('TELEGRAM_CHAT_ID') || '682438619';
+    // 9. NOTIFICATION TELEGRAM INSTANTANÉE AU COMMERÇANT (GROUPE SITEWEB)
+    const telegramBotToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    let telegramChatId = Deno.env.get('TELEGRAM_CHAT_ID') || '-1004337566144';
+    if (telegramChatId === '682438619') {
+      telegramChatId = '-1004337566144';
+    }
+    let telegramSent = false;
 
     if (telegramBotToken && telegramChatId) {
       try {
-        const telegramMessage = `🛍️ *NOUVELLE COMMANDE REÇUE !*\n\n` +
-          `📦 *N° Commande :* \`${orderNumber}\`\n` +
-          `👤 *Client :* ${customerName}\n` +
-          `📞 *Téléphone :* ${normalizedPhone}\n` +
-          `📍 *Destination :* ${wilayaName} (${commune})\n` +
-          `🚚 *Livraison :* ${deliveryType === 'home' ? 'À Domicile' : 'Stop Desk (Bureau)'}\n` +
-          `💰 *Total à Encaisser (COD) :* *${serverGrandTotal.toLocaleString('fr-FR')} DA*\n\n` +
-          `🌸 *Maison Céleste Algérie*`;
+        const escapeHtml = (str: string) => {
+          if (!str) return '';
+          return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        };
 
-        await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
+        const dateFormatted = new Date().toLocaleString('fr-FR', {
+          timeZone: 'Africa/Algiers',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+
+        const deliveryTypeLabel = deliveryType === 'desk'
+          ? 'Bureau / Stop Desk (Agence)'
+          : 'À Domicile';
+
+        const fullAddress = [
+          address,
+          commune,
+          wilayaName,
+          `(${deliveryTypeLabel})`,
+        ].filter(Boolean).join(', ');
+
+        let totalQty = 0;
+        const itemsHtml = itemsWithServerPrices
+          .map((it: any) => {
+            const qty = Number(it.quantity) || 1;
+            totalQty += qty;
+            const unitPrice = Number(it.unitPrice) || 0;
+            const lineTotal = (unitPrice * qty).toLocaleString('fr-FR');
+            const variantDesc = [it.selectedColor, it.selectedSize].filter(Boolean).join(' • ');
+            return (
+              `• <b>${escapeHtml(it.productTitle)}</b>` +
+              (variantDesc ? ` (<i>${escapeHtml(variantDesc)}</i>)` : '') +
+              `\n  ▫️ Quantité : ${qty} × ${unitPrice.toLocaleString('fr-FR')} DA = <b>${lineTotal} DA</b>`
+            );
+          })
+          .join('\n\n');
+
+        let cleanNotes = '';
+        if (notes) {
+          cleanNotes = String(notes).split('__MC_ITEMS_DATA__:')[0].trim();
+        }
+
+        let intlPhone = cleanPhoneDigits;
+        if (cleanPhoneDigits.startsWith('0')) {
+          intlPhone = '213' + cleanPhoneDigits.substring(1);
+        } else if (!cleanPhoneDigits.startsWith('213') && cleanPhoneDigits.length > 0) {
+          intlPhone = '213' + cleanPhoneDigits;
+        }
+        const waUrl = `https://wa.me/${intlPhone}`;
+
+        const telegramMessageHtml =
+          `🛒 <b>NOUVELLE COMMANDE – MAISON CÉLESTE</b>\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━\n\n` +
+          `📦 <b>Numéro de commande :</b> <code>${escapeHtml(orderNumber)}</code>\n` +
+          `📅 <b>Date et heure :</b> ${dateFormatted}\n\n` +
+          `👤 <b>Nom du client :</b> ${escapeHtml(customerName)}\n` +
+          `📞 <b>Numéro de téléphone :</b> ${escapeHtml(normalizedPhone)}\n` +
+          `📍 <b>Adresse de livraison :</b> ${escapeHtml(fullAddress)}\n` +
+          (cleanNotes ? `📝 <b>Note client :</b> <i>« ${escapeHtml(cleanNotes)} »</i>\n` : '') +
+          `\n` +
+          `💎 <b>Produits commandés :</b>\n` +
+          `${itemsHtml}\n\n` +
+          `📊 <b>Quantité totale :</b> ${totalQty} article${totalQty > 1 ? 's' : ''}\n` +
+          `💰 <b>Total de la commande :</b> <b>${serverGrandTotal.toLocaleString('fr-FR')} DA</b>` +
+          (calculatedShippingFee ? ` <i>(dont ${calculatedShippingFee.toLocaleString('fr-FR')} DA livraison)</i>` : '') +
+          `\n\n` +
+          `━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
+          (intlPhone ? `📲 <a href="${waUrl}">Contacter le client sur WhatsApp</a>\n\n` : '') +
+          `🌸 <i>Maison Céleste Algérie — Notification Automatique</i>`;
+
+        const tgRes = await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             chat_id: telegramChatId,
-            text: telegramMessage,
-            parse_mode: 'Markdown',
+            text: telegramMessageHtml,
+            parse_mode: 'HTML',
+            disable_web_page_preview: true,
           }),
         });
+
+        const tgData = await tgRes.json();
+        if (!tgData.ok && tgData.description && tgData.description.includes("can't parse")) {
+          // Re-tentative de secours en texte brut en cas d'erreur de balisage
+          await fetch(`https://api.telegram.org/bot${telegramBotToken}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: telegramChatId,
+              text: telegramMessageHtml.replace(/<[^>]+>/g, ''),
+              disable_web_page_preview: true,
+            }),
+          });
+        }
+        telegramSent = true;
       } catch (tgErr) {
-        console.warn('[Telegram] Impossible d''envoyer la notification Telegram:', tgErr);
+        console.warn('[Telegram] Impossible d\'envoyer la notification Telegram:', tgErr);
       }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
+        telegramSent,
         order: {
           id: insertedOrder.id,
           orderNumber: insertedOrder.order_number,
